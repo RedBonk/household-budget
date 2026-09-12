@@ -294,6 +294,9 @@
   }
 </style>
 
+
+<!-- Supabase: shared cloud database + realtime sync -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <body>
 <div class="wrap">
 
@@ -590,6 +593,25 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="modal-overlay lf-hidden" id="cloudLoginOverlay">
+  <div class="modal-box" style="max-width:420px;">
+    <h3>공유 가계부 로그인 · Cloud Sync</h3>
+    <p class="note">
+      두 기기에서 <b>같은 Supabase 계정</b>으로 로그인하면 같은 가계부를 실시간으로 공유합니다.
+      계정은 Supabase 대시보드에서 미리 만들어 두는 방식입니다.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
+      <input id="cloudEmail" type="email" autocomplete="username" placeholder="이메일"
+        style="padding:10px;border:1px solid var(--paper-line);border-radius:4px;background:var(--input-bg);color:var(--ink);font-size:16px;">
+      <input id="cloudPassword" type="password" autocomplete="current-password" placeholder="비밀번호"
+        style="padding:10px;border:1px solid var(--paper-line);border-radius:4px;background:var(--input-bg);color:var(--ink);font-size:16px;">
+      <button class="btn brass" id="cloudLoginBtn">로그인</button>
+      <div id="cloudLoginMsg" style="font-size:12px;color:var(--ink-soft);min-height:18px;"></div>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal-overlay lf-hidden" id="catModalOverlay">
   <div class="modal-box">
     <h3>카테고리 관리 · Manage Categories</h3>
@@ -640,7 +662,7 @@ const DEFAULT_CATS = {
   '수입': ['급여','상여','이자·배당','기타수입'],
   '저축·투자': ['예수금','외화','주식','코인']
 };
-const DEFAULT_USERS = ['최고건우','예쁜미송'];
+const DEFAULT_USERS = ['사용자1','사용자2'];
 const CAT_COLOR_PALETTE = ['#7A5F2C','#3F6B54','#2563A6','#8B5E83','#B8863B','#5B6670','#A2603A','#4E7C6E','#5B4B8A','#B0552F','#3E6B87','#8A6A2E','#6B4F4F','#3F6B54','#8B5E83'];
 /* 종목명 자동완성용 주요 종목 데이터베이스 (야후 파이낸스 티커 형식) */
 const STOCK_DB = {
@@ -698,216 +720,70 @@ const COINGECKO_MAP = {
 const STORAGE_KEY = 'household_dashboard_state_v4';
 
 /* ============================================================
+   Supabase 공유 동기화 설정
+   - 아래 두 값만 본인의 Supabase 프로젝트 값으로 교체하세요.
+   - anon key는 브라우저 공개용 키이며, 실제 접근 통제는 RLS 정책이 담당합니다.
+============================================================ */
+const SUPABASE_URL = 'https://aoqewsguqrbwrhqqejfw.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_GpiVUPxnBr8VSNq38cT1TA_-1kJsoKc';
+const CLOUD_CONFIGURED =
+  SUPABASE_URL.startsWith('https://') &&
+  !SUPABASE_URL.includes('PASTE_YOUR_') &&
+  !SUPABASE_ANON_KEY.includes('PASTE_YOUR_');
+
+let supabaseClient = null;
+let currentCloudUser = null;
+let realtimeChannel = null;
+let lastCloudStateJson = '';
+let cloudSaveInFlight = false;
+
+function setSaveStatus(text, isError=false){
+  const el = document.getElementById('saveStatus');
+  if(!el) return;
+  el.textContent = text;
+  el.style.color = isError ? 'var(--up)' : '#2E8B57';
+}
+
+function normalizeLoadedState(parsed){
+  if(parsed && !parsed.schemaVersion) parsed.schemaVersion = 1;
+  if(!parsed || typeof parsed !== 'object') return defaultState();
+  if(!parsed.cats) parsed.cats = JSON.parse(JSON.stringify(DEFAULT_CATS));
+  if(!parsed.users || !parsed.users.length) parsed.users = [...DEFAULT_USERS];
+  const all = [
+    ...(parsed.kr||[]), ...(parsed.us||[]), ...(parsed.etc||[]),
+    ...(parsed.ledger||[]), ...(parsed.cashAccounts||[]), ...(parsed.paymentMethods||[])
+  ];
+  uidCounter = all.length ? Math.max(...all.map(r=>r.id||0)) + 1 : 1;
+  return parsed;
+}
+
+function stateJson(){
+  return JSON.stringify(state);
+}
+
+
+/* ============================================================
    상태 · State
 ============================================================ */
 let uidCounter = 1;
 const uid = () => uidCounter++;
 
 /* 사용자의 기존 「2026년」 가계부 파일에서 가져온 실제 거래 내역 (1월~8월, 158건) */
-const LEDGER_SEED = [
-{id:1,date:'2026-01-01',user:'',major:'지출',category:'계비',pay:'이체',currency:'KRW',memo:'BM 계비',amount:20000},
-{id:2,date:'2026-01-01',user:'',major:'지출',category:'교통',pay:'체크카드',currency:'KRW',memo:'쏘카 자전가',amount:2400},
-{id:3,date:'2026-01-01',user:'',major:'지출',category:'교통',pay:'체크카드',currency:'KRW',memo:'쏘카 자전가',amount:2400},
-{id:4,date:'2026-01-01',user:'',major:'지출',category:'교통',pay:'체크카드',currency:'KRW',memo:'쏘카 자전가',amount:2040},
-{id:5,date:'2026-01-01',user:'',major:'지출',category:'교통',pay:'체크카드',currency:'KRW',memo:'상인 맥날',amount:2300},
-{id:6,date:'2026-01-02',user:'',major:'지출',category:'교통',pay:'체크카드',currency:'KRW',memo:'SRT',amount:65000},
-{id:7,date:'2026-01-02',user:'',major:'지출',category:'모임비',pay:'체크카드',currency:'KRW',memo:'집 > 시내 택시',amount:6300},
-{id:8,date:'2026-01-02',user:'',major:'지출',category:'모임비',pay:'체크카드',currency:'KRW',memo:'술',amount:18000},
-{id:9,date:'2026-01-04',user:'',major:'지출',category:'카페',pay:'체크카드',currency:'KRW',memo:'동대구역  커피',amount:9500},
-{id:10,date:'2026-01-04',user:'',major:'지출',category:'모임비',pay:'이체',currency:'KRW',memo:'술',amount:19400},
-{id:11,date:'2026-01-04',user:'',major:'지출',category:'모임비',pay:'이체',currency:'KRW',memo:'술',amount:10000},
-{id:12,date:'2026-01-05',user:'',major:'지출',category:'교통',pay:'이체',currency:'KRW',memo:'미송 기차비 입금',amount:-70000},
-{id:13,date:'2026-01-06',user:'',major:'지출',category:'교통',pay:'이체',currency:'KRW',memo:'대중 교통 대금',amount:42450},
-{id:14,date:'2026-06-01',user:'',major:'지출',category:'카페',pay:'체크카드',currency:'KRW',memo:'회사 커피',amount:8700},
-{id:15,date:'2026-06-01',user:'',major:'지출',category:'계비',pay:'이체',currency:'KRW',memo:'BM',amount:20000},
-{id:16,date:'2026-06-02',user:'',major:'지출',category:'인테리어',pay:'체크카드',currency:'KRW',memo:'떼어내는 페인트',amount:39900},
-{id:17,date:'2026-06-05',user:'',major:'지출',category:'카페',pay:'체크카드',currency:'KRW',memo:'회사 커피',amount:1800},
-{id:18,date:'2026-06-06',user:'',major:'지출',category:'외식비',pay:'체크카드',currency:'KRW',memo:'배달',amount:26000},
-{id:19,date:'2026-06-06',user:'',major:'지출',category:'부동산',pay:'이체',currency:'KRW',memo:'미송이 부대비용 낼 거 없어서 지원',amount:2400000},
-{id:20,date:'2026-06-07',user:'',major:'지출',category:'병원',pay:'체크카드',currency:'KRW',memo:'이지앤식스',amount:16000},
-{id:21,date:'2026-06-08',user:'',major:'지출',category:'카페',pay:'체크카드',currency:'KRW',memo:'회사 커피',amount:5800},
-{id:22,date:'2026-06-09',user:'',major:'지출',category:'외식비',pay:'체크카드',currency:'KRW',memo:'배달',amount:10901},
-{id:23,date:'2026-06-09',user:'',major:'지출',category:'부동산',pay:'이체',currency:'KRW',memo:'박종선 선수관리비',amount:120000},
-{id:24,date:'2026-06-09',user:'',major:'지출',category:'기타',pay:'체크카드',currency:'KRW',memo:'미송이 초콜릿',amount:4700},
-{id:25,date:'2026-06-09',user:'',major:'지출',category:'카페',pay:'체크카드',currency:'KRW',memo:'회사 커피',amount:4000},
-{id:26,date:'2026-06-10',user:'',major:'지출',category:'인테리어',pay:'이체',currency:'KRW',memo:'추연보 벽지 예약금',amount:200000},
-{id:27,date:'2026-06-10',user:'',major:'지출',category:'구독',pay:'체크카드',currency:'KRW',memo:'애플 클라우드',amount:3300},
-{id:28,date:'2026-06-11',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'쿠팡',amount:6490},
-{id:29,date:'2026-06-12',user:'',major:'지출',category:'기타',pay:'이체',currency:'KRW',memo:'네이버 플러스 구독',amount:4900},
-{id:30,date:'2026-06-13',user:'',major:'지출',category:'카페',pay:'체크카드',currency:'KRW',memo:'토욜 아침 커피',amount:5300},
-{id:31,date:'2026-06-14',user:'',major:'지출',category:'가구',pay:'이체',currency:'KRW',memo:'비데',amount:242000},
-{id:32,date:'2026-06-14',user:'',major:'지출',category:'가구',pay:'체크카드',currency:'KRW',memo:'침대 프레임',amount:868500},
-{id:33,date:'2026-06-14',user:'',major:'지출',category:'가구',pay:'체크카드',currency:'KRW',memo:'쇼파',amount:775900},
-{id:34,date:'2026-06-15',user:'',major:'지출',category:'인테리어',pay:'이체',currency:'KRW',memo:'추연보 벽지 1',amount:770000},
-{id:35,date:'2026-06-16',user:'',major:'지출',category:'인테리어',pay:'이체',currency:'KRW',memo:'추연보 벽지 2',amount:330000},
-{id:36,date:'2026-06-16',user:'',major:'지출',category:'가구',pay:'체크카드',currency:'KRW',memo:'의자, 부엌 책상, 러그, 샤워헤드, 호수, 매트리스 커버',amount:525833},
-{id:37,date:'2026-06-17',user:'',major:'지출',category:'가전',pay:'체크카드',currency:'KRW',memo:'쿠쿠 밥솥',amount:278000},
-{id:38,date:'2026-06-17',user:'',major:'지출',category:'가구',pay:'체크카드',currency:'KRW',memo:'수건세트',amount:150000},
-{id:39,date:'2026-06-17',user:'',major:'지출',category:'주거비',pay:'이체',currency:'KRW',memo:'월세',amount:500000},
-{id:40,date:'2026-06-18',user:'',major:'지출',category:'교통',pay:'체크카드',currency:'KRW',memo:'택시비',amount:28900},
-{id:41,date:'2026-06-19',user:'',major:'지출',category:'주거비',pay:'이체',currency:'KRW',memo:'관리비',amount:205520},
-{id:42,date:'2026-06-19',user:'',major:'지출',category:'인테리어',pay:'이체',currency:'KRW',memo:'수원 용달',amount:353000},
-{id:43,date:'2026-06-19',user:'',major:'지출',category:'인테리어',pay:'이체',currency:'KRW',memo:'가전 설치',amount:25000},
-{id:44,date:'2026-06-19',user:'',major:'지출',category:'구독',pay:'신용카드',currency:'KRW',memo:'삼성 구독 케어',amount:5850},
-{id:45,date:'2026-06-19',user:'',major:'지출',category:'가전',pay:'체크카드',currency:'KRW',memo:'다이슨 싸이클론 V8 ',amount:340000},
-{id:46,date:'2026-06-19',user:'',major:'지출',category:'가구',pay:'체크카드',currency:'KRW',memo:'냉감 패드',amount:57500},
-{id:47,date:'2026-06-19',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'보쉬 Go3',amount:47500},
-{id:48,date:'2026-06-20',user:'',major:'지출',category:'기타',pay:'체크카드',currency:'KRW',memo:'편의점',amount:8900},
-{id:49,date:'2026-06-20',user:'',major:'지출',category:'기타',pay:'체크카드',currency:'KRW',memo:'다이소',amount:9453},
-{id:50,date:'2026-06-20',user:'',major:'지출',category:'경조사',pay:'신용카드',currency:'KRW',memo:'스타필드 빵',amount:45600},
-{id:51,date:'2026-06-20',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'무인양품',amount:17700},
-{id:52,date:'2026-06-20',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'트레이더스',amount:44800},
-{id:53,date:'2026-06-21',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'다이소',amount:14925},
-{id:54,date:'2026-06-21',user:'',major:'지출',category:'주거비',pay:'신용카드',currency:'KRW',memo:'먹을꺼 잔뜩',amount:139440},
-{id:55,date:'2026-06-22',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'베게',amount:61000},
-{id:56,date:'2026-06-22',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'치약',amount:8350},
-{id:57,date:'2026-06-23',user:'',major:'지출',category:'교통',pay:'체크카드',currency:'KRW',memo:'대중교통ㄹ',amount:15100},
-{id:58,date:'2026-06-24',user:'',major:'지출',category:'구독',pay:'체크카드',currency:'KRW',memo:'넷플릭스',amount:17000},
-{id:59,date:'2026-06-25',user:'',major:'지출',category:'대출이자',pay:'이체',currency:'KRW',memo:'신용 대출 이자',amount:295718},
-{id:60,date:'2026-06-25',user:'',major:'지출',category:'인테리어',pay:'체크카드',currency:'KRW',memo:'칠만표 페인트',amount:60000},
-{id:61,date:'2026-06-27',user:'',major:'지출',category:'경조사',pay:'신용카드',currency:'KRW',memo:'스타필드 빵',amount:37900},
-{id:62,date:'2026-06-27',user:'',major:'지출',category:'주거비',pay:'신용카드',currency:'KRW',memo:'트레이더스',amount:14906},
-{id:63,date:'2026-06-27',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'다이소',amount:18905},
-{id:64,date:'2026-06-27',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'커튼 + 레일',amount:91837},
-{id:65,date:'2026-06-27',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'회',amount:20000},
-{id:66,date:'2026-06-27',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'맥주, 초콜릿, 소주',amount:17300},
-{id:67,date:'2026-06-28',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'닭한마리 8호',amount:8000},
-{id:68,date:'2026-06-28',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'야채',amount:9000},
-{id:69,date:'2026-06-28',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'스타필드',amount:20000},
-{id:70,date:'2026-06-28',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'보쉬 드릴 비트 세트',amount:10950},
-{id:71,date:'2026-06-28',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'멀티탭',amount:52010},
-{id:72,date:'2026-06-28',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'보일러 컨트롤러',amount:3600},
-{id:73,date:'2026-06-29',user:'',major:'지출',category:'인테리어',pay:'신용카드',currency:'KRW',memo:'',amount:179100},
-{id:74,date:'2026-07-01',user:'',major:'지출',category:'주거비',pay:'이체',currency:'KRW',memo:'세탁비',amount:108000},
-{id:75,date:'2026-07-01',user:'',major:'지출',category:'계비',pay:'이체',currency:'KRW',memo:'BM 계비',amount:20000},
-{id:76,date:'2026-07-02',user:'',major:'지출',category:'교통',pay:'신용카드',currency:'KRW',memo:'일레클',amount:2220},
-{id:77,date:'2026-07-02',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'서브웨이',amount:6200},
-{id:78,date:'2026-07-02',user:'',major:'지출',category:'교통',pay:'이체',currency:'KRW',memo:'SRT',amount:32400},
-{id:79,date:'2026-07-04',user:'',major:'지출',category:'교통',pay:'이체',currency:'KRW',memo:'KTX',amount:43800},
-{id:80,date:'2026-07-05',user:'',major:'지출',category:'주거비',pay:'신용카드',currency:'KRW',memo:'미용실',amount:22000},
-{id:81,date:'2026-07-05',user:'',major:'지출',category:'외식비',pay:'신용카드',currency:'KRW',memo:'배달',amount:28000},
-{id:82,date:'2026-07-05',user:'',major:'지출',category:'교통',pay:'신용카드',currency:'KRW',memo:'택시',amount:19800},
-{id:83,date:'2026-07-05',user:'',major:'지출',category:'주거비',pay:'신용카드',currency:'KRW',memo:'무인양품',amount:23600},
-{id:84,date:'2026-07-05',user:'',major:'지출',category:'주거비',pay:'신용카드',currency:'KRW',memo:'올리브영',amount:13500},
-{id:85,date:'2026-07-06',user:'',major:'지출',category:'가전',pay:'신용카드',currency:'KRW',memo:'선풍기',amount:84310},
-{id:86,date:'2026-07-06',user:'',major:'지출',category:'주거비',pay:'신용카드',currency:'KRW',memo:'냉감패드',amount:98000},
-{id:87,date:'2026-07-06',user:'',major:'지출',category:'주거비',pay:'신용카드',currency:'KRW',memo:'리빙제이 베게',amount:45900},
-{id:88,date:'2026-07-06',user:'',major:'지출',category:'식비',pay:'신용카드',currency:'KRW',memo:'베라',amount:18700},
-{id:89,date:'2026-07-06',user:'',major:'지출',category:'모임비',pay:'이체',currency:'KRW',memo:'주말 모임 - 동하 창하',amount:32833},
-{id:90,date:'2026-07-06',user:'',major:'지출',category:'쇼핑',pay:'신용카드',currency:'KRW',memo:'양말 10',amount:11180},
-{id:91,date:'2026-07-10',user:'',major:'지출',category:'주거비',pay:'신용카드',currency:'KRW',memo:'싱크대 커버',amount:12300},
-{id:92,date:'2026-07-10',user:'',major:'지출',category:'주거비',pay:'신용카드',currency:'KRW',memo:'코브라 앵커',amount:6930},
-{id:93,date:'2026-07-10',user:'',major:'지출',category:'주거비',pay:'신용카드',currency:'KRW',memo:'하수구 트랩',amount:15260},
-{id:94,date:'2026-07-11',user:'',major:'지출',category:'식비',pay:'신용카드',currency:'KRW',memo:'야채',amount:4500},
-{id:95,date:'2026-07-11',user:'',major:'지출',category:'식비',pay:'신용카드',currency:'KRW',memo:'앞다리살 3근',amount:10000},
-{id:96,date:'2026-07-11',user:'',major:'지출',category:'병원',pay:'신용카드',currency:'KRW',memo:'사마귀 치료',amount:40400},
-{id:97,date:'2026-07-13',user:'',major:'지출',category:'교통',pay:'신용카드',currency:'KRW',memo:'대중교통',amount:7750},
-{id:98,date:'2026-07-14',user:'',major:'지출',category:'카페',pay:'이체',currency:'KRW',memo:'',amount:21500},
-{id:99,date:'2026-07-16',user:'',major:'지출',category:'부동산',pay:'이체',currency:'KRW',memo:'이너매스 관리비 마지막 (1달 반짜리)',amount:287990},
-{id:100,date:'2026-07-17',user:'',major:'지출',category:'카페',pay:'체크카드',currency:'KRW',memo:'메가커피',amount:4000},
-{id:101,date:'2026-07-17',user:'',major:'지출',category:'인테리어',pay:'체크카드',currency:'KRW',memo:'컴퓨터 의자',amount:112250},
-{id:102,date:'2026-07-17',user:'',major:'지출',category:'인테리어',pay:'체크카드',currency:'KRW',memo:'재활용쓰레기통',amount:14010},
-{id:103,date:'2026-07-17',user:'',major:'지출',category:'취미',pay:'신용카드',currency:'KRW',memo:'스팀 메챠 구매',amount:6508},
-{id:104,date:'2026-07-18',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'미송이 미용실',amount:150000},
-{id:105,date:'2026-07-18',user:'',major:'지출',category:'카페',pay:'체크카드',currency:'KRW',memo:'메가커피',amount:1700},
-{id:106,date:'2026-07-18',user:'',major:'지출',category:'병원',pay:'체크카드',currency:'KRW',memo:'이지엔식스',amount:10000},
-{id:107,date:'2026-07-19',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'치킨',amount:15500},
-{id:108,date:'2026-07-19',user:'',major:'지출',category:'구독',pay:'신용카드',currency:'KRW',memo:'삼성 구독 케어',amount:9825},
-{id:109,date:'2026-07-19',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'양파 감자 바구니',amount:15800},
-{id:110,date:'2026-07-19',user:'',major:'지출',category:'카페',pay:'체크카드',currency:'KRW',memo:'메가커피',amount:4700},
-{id:111,date:'2026-07-20',user:'',major:'지출',category:'구독',pay:'체크카드',currency:'KRW',memo:'챗지피티 구독',amount:29000},
-{id:112,date:'2026-07-21',user:'',major:'수입',category:'급여',pay:'',currency:'KRW',memo:'건우 급여',amount:3939280},
-{id:113,date:'2026-07-21',user:'',major:'수입',category:'급여',pay:'',currency:'KRW',memo:'미송 급여',amount:2453245},
-{id:114,date:'2026-07-22',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'고등어, 진미채, 명란젓, 김, 파스타면',amount:77670},
-{id:115,date:'2026-07-24',user:'',major:'지출',category:'구독',pay:'체크카드',currency:'KRW',memo:'넷플릭스',amount:17000},
-{id:116,date:'2026-07-24',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'로션',amount:28180},
-{id:117,date:'2026-07-25',user:'',major:'지출',category:'카페',pay:'체크카드',currency:'KRW',memo:'파바 커피',amount:10900},
-{id:118,date:'2026-07-25',user:'',major:'지출',category:'병원',pay:'체크카드',currency:'KRW',memo:'사마귀 치료',amount:38300},
-{id:119,date:'2026-07-25',user:'',major:'지출',category:'경조사',pay:'체크카드',currency:'KRW',memo:'엄마 생일 케잌',amount:54000},
-{id:120,date:'2026-07-25',user:'',major:'지출',category:'경조사',pay:'이체',currency:'KRW',memo:'엄마 생일 용돈',amount:200000},
-{id:121,date:'2026-07-25',user:'',major:'지출',category:'경조사',pay:'신용카드',currency:'KRW',memo:'형아 생일 선물',amount:83000},
-{id:122,date:'2026-07-25',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'맥주, 궁중팬',amount:69113},
-{id:123,date:'2026-07-25',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'양파, 감자',amount:5000},
-{id:124,date:'2026-07-25',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'쌈장',amount:3480},
-{id:125,date:'2026-07-25',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'메론, 수저',amount:20995},
-{id:126,date:'2026-07-25',user:'',major:'지출',category:'계비',pay:'이체',currency:'KRW',memo:'pa 계비',amount:10000},
-{id:127,date:'2026-07-26',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'테이프, 간식',amount:9950},
-{id:128,date:'2026-07-26',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'치킨',amount:21000},
-{id:129,date:'2026-07-26',user:'',major:'지출',category:'카페',pay:'체크카드',currency:'KRW',memo:'메가커피',amount:9500},
-{id:130,date:'2026-07-27',user:'',major:'지출',category:'대출이자',pay:'이체',currency:'KRW',memo:'신용대출 이자',amount:286179},
-{id:131,date:'2026-07-28',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'시트지',amount:19100},
-{id:132,date:'2026-07-28',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'테이블',amount:94800},
-{id:133,date:'2026-07-28',user:'',major:'지출',category:'여행',pay:'체크카드',currency:'KRW',memo:'동탄 > 인천 버스 (명호까지)',amount:29000},
-{id:134,date:'2026-07-28',user:'',major:'지출',category:'여행',pay:'체크카드',currency:'KRW',memo:'에어비앤비',amount:149557},
-{id:135,date:'2026-07-29',user:'',major:'지출',category:'경조사',pay:'신용카드',currency:'KRW',memo:'꽃',amount:30000},
-{id:136,date:'2026-07-29',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'미용실',amount:22000},
-{id:137,date:'2026-07-30',user:'',major:'지출',category:'구독',pay:'체크카드',currency:'KRW',memo:'아이 클라우드 ',amount:2900},
-{id:138,date:'2026-07-30',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'베라',amount:18500},
-{id:139,date:'2026-07-30',user:'',major:'지출',category:'여행',pay:'체크카드',currency:'KRW',memo:'손전등, 물병, 목베게, 벌레 퇴치제, 일회용 수건',amount:54990},
-{id:140,date:'2026-07-31',user:'',major:'지출',category:'여행',pay:'이체',currency:'KRW',memo:'비행기값',amount:1310100},
-{id:141,date:'2026-07-31',user:'',major:'지출',category:'여행',pay:'체크카드',currency:'KRW',memo:'eSIM',amount:13475},
-{id:142,date:'2026-07-31',user:'',major:'지출',category:'여행',pay:'체크카드',currency:'KRW',memo:'여행자 보험',amount:12850},
-{id:143,date:'2026-07-31',user:'',major:'지출',category:'여행',pay:'이체',currency:'KRW',memo:'830달러 환전 (투어비)',amount:1183156},
-{id:144,date:'2026-07-31',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'미송이 식비',amount:50000},
-{id:145,date:'2026-07-31',user:'',major:'지출',category:'대출이자',pay:'이체',currency:'KRW',memo:'보금자리론 이자',amount:1387079},
-{id:146,date:'2026-07-31',user:'',major:'지출',category:'공과금',pay:'이체',currency:'KRW',memo:'아파트 관리비',amount:184370},
-{id:147,date:'2026-07-31',user:'',major:'지출',category:'미송이 용돈',pay:'이체',currency:'KRW',memo:'미송이 용돈',amount:481796},
-{id:148,date:'2026-08-01',user:'',major:'지출',category:'여행',pay:'신용카드',currency:'KRW',memo:'공동 구매 비용',amount:540810},
-{id:149,date:'2026-08-01',user:'',major:'지출',category:'여행',pay:'신용카드',currency:'KRW',memo:'공동 구매 비용 - 기념품',amount:875450},
-{id:150,date:'2026-08-01',user:'',major:'지출',category:'계비',pay:'이체',currency:'KRW',memo:'BM 계비',amount:20000},
-{id:151,date:'2026-08-01',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'미송이 용돈',amount:481796},
-{id:152,date:'2026-08-06',user:'',major:'지출',category:'여행',pay:'체크카드',currency:'KRW',memo:'인천 > 수원 버스',amount:15000},
-{id:153,date:'2026-08-07',user:'',major:'지출',category:'식비',pay:'체크카드',currency:'KRW',memo:'치킨',amount:27000},
-{id:154,date:'2026-08-08',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'영화',amount:24000},
-{id:155,date:'2026-08-08',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'사마귀 치료',amount:38300},
-{id:156,date:'2026-08-08',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'사마귀 연고',amount:24700},
-{id:157,date:'2026-08-08',user:'',major:'지출',category:'주거비',pay:'체크카드',currency:'KRW',memo:'영화관 팝콘',amount:9450},
-{id:158,date:'2026-08-08',user:'',major:'지출',category:'외식비',pay:'신용카드',currency:'KRW',memo:'맥주',amount:47600}
-];
+const LEDGER_SEED = [];
 
 function defaultState(){
-  const accKbSaving = uid(), accKbSpend = uid(), accSaemaul = uid(), accNhRent = uid(), accNamuMain = uid(), accNamuPension = uid();
-  const cashAccounts = [
-    { id: accKbSaving, name:'국민은행 저축용', type:'payment', krwBalance:5922968, usdBalance:0 },
-    { id: accKbSpend, name:'국민은행 소비용', type:'payment', krwBalance:89264, usdBalance:0 },
-    { id: accSaemaul, name:'새마을 금고', type:'payment', krwBalance:2817715, usdBalance:0 },
-    { id: accNhRent, name:'농협은행 월세용', type:'payment', krwBalance:0, usdBalance:0 },
-    { id: accNamuMain, name:'나무증권 (원화·달러 예수금)', type:'invest', krwBalance:727321, usdBalance:1829.00 },
-    { id: accNamuPension, name:'나무증권 (연금)', type:'invest', krwBalance:118944, usdBalance:0 }
-  ];
-  const paymentMethods = [
-    { id: uid(), name:'체크카드', accountId: accKbSpend },
-    { id: uid(), name:'신용카드', accountId: accSaemaul }
-  ];
   return {
-    usdRate: { value: 1417.80, source: 'manual' },
-    jpyRate: { value: 920, source: 'manual' },
-    cashAccounts, paymentMethods,
+    schemaVersion: 1,
+    usdRate: { value: 0, source: 'manual' },
+    jpyRate: { value: 0, source: 'manual' },
+    cashAccounts: [],
+    paymentMethods: [],
     cats: JSON.parse(JSON.stringify(DEFAULT_CATS)),
     users: [...DEFAULT_USERS],
-    kr: [
-      { id: uid(), name:'삼성전자', ticker:'005930.KS', qty:12, cost:3455847, price:230000, source:'manual' },
-      { id: uid(), name:'SK하이닉스', ticker:'000660.KS', qty:1, cost:2812000, price:1420000, source:'manual' },
-      { id: uid(), name:'이수페타시스', ticker:'007660.KS', qty:10, cost:1375300, price:93000, source:'manual' },
-      { id: uid(), name:'알테오젠', ticker:'196170.KQ', qty:12, cost:5214000, price:348000, source:'manual' },
-      { id: uid(), name:'TIGER 미국나스닥100', ticker:'133690.KS', qty:63, cost:9121800, price:187010, source:'manual' },
-      { id: uid(), name:'TIGER 미국우주테크', ticker:'0183J0.KS', qty:57, cost:732175, price:8840, source:'manual' },
-      { id: uid(), name:'TIGER 2차전지테마', ticker:'305540.KS', qty:67, cost:1501175, price:18405, source:'manual' },
-      { id: uid(), name:'ACE KRX 금현물', ticker:'411060.KS', qty:14, cost:360340, price:27800, source:'manual' }
-    ],
-    us: [
-      { id: uid(), name:'NVIDIA', ticker:'NVDA', qty:24, cost:5416.56, avgFx:1417.80, price:223.4, source:'manual' },
-      { id: uid(), name:'Voyager Technologies', ticker:'VOYG', qty:68, cost:2366.40, avgFx:1417.80, price:42.2, source:'manual' },
-      { id: uid(), name:'Dell Technologies', ticker:'DELL', qty:6, cost:2808.90, avgFx:1417.80, price:458.1, source:'manual' },
-      { id: uid(), name:'SanDisk', ticker:'SNDK', qty:1, cost:1754.92, avgFx:1417.80, price:1231.50, source:'manual' },
-      { id: uid(), name:'Broadcom', ticker:'AVGO', qty:2, cost:967.86, avgFx:1417.80, price:428.7, source:'manual' },
-      { id: uid(), name:'BitMine Immersion', ticker:'BMNR', qty:23, cost:887.11, avgFx:1417.80, price:18.5, source:'manual' },
-      { id: uid(), name:'IREN Limited', ticker:'IREN', qty:2, cost:136.16, avgFx:1417.80, price:39.9, source:'manual' },
-      { id: uid(), name:'Invesco NASDAQ 100 (QQQM)', ticker:'QQQM', qty:6, cost:1550.70, avgFx:1417.80, price:297.3, source:'manual' },
-      { id: uid(), name:'Redwire', ticker:'RDW', qty:6, cost:124.62, avgFx:1417.80, price:13.4, source:'manual' }
-    ],
+    kr: [],
+    us: [],
     etc: [],
-    ledger: LEDGER_SEED
+    ledger: []
   };
 }
 
@@ -916,15 +792,8 @@ let state = loadState();
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const parsed = JSON.parse(raw);
-      const all = [...(parsed.kr||[]), ...(parsed.us||[]), ...(parsed.etc||[]), ...(parsed.ledger||[]), ...(parsed.cashAccounts||[]), ...(parsed.paymentMethods||[])];
-      uidCounter = all.length ? Math.max(...all.map(r=>r.id||0)) + 1 : 1;
-      if(!parsed.cats) parsed.cats = JSON.parse(JSON.stringify(DEFAULT_CATS));
-      if(!parsed.users || !parsed.users.length) parsed.users = [...DEFAULT_USERS];
-      return parsed;
-    }
-  }catch(e){ /* localStorage unavailable or corrupted — fall back to demo data */ }
+    if(raw) return normalizeLoadedState(JSON.parse(raw));
+  }catch(e){ /* localStorage unavailable or corrupted — fall back to bundled data */ }
   return defaultState();
 }
 
@@ -936,16 +805,194 @@ function loadState(){
 let saveTimer = null;
 function persist(){
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(()=>{
+  saveTimer = setTimeout(async ()=>{
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      const el = document.getElementById('saveStatus');
-      el.textContent = '자동 저장됨 ✓ ' + new Date().toLocaleTimeString('ko-KR');
     }catch(e){
-      document.getElementById('saveStatus').textContent = '⚠ 이 화면에서는 자동 저장이 지원되지 않아요 — 내보내기로 저장하세요';
+      setSaveStatus('⚠ 이 화면에서는 로컬 저장이 지원되지 않아요', true);
+    }
+
+    // Supabase가 아직 설정되지 않았거나 로그인 전이면 로컬 저장만 사용
+    if(!CLOUD_CONFIGURED || !supabaseClient || !currentCloudUser){
+      if(!CLOUD_CONFIGURED) setSaveStatus('이 기기에 자동 저장됨 ✓');
+      return;
+    }
+
+    const json = stateJson();
+    // 원격에서 막 받아온 동일 상태 / 이미 저장된 동일 상태는 다시 쓰지 않음
+    if(json === lastCloudStateJson || cloudSaveInFlight) return;
+
+    cloudSaveInFlight = true;
+    setSaveStatus('클라우드 저장 중…');
+    try{
+      const { error } = await supabaseClient
+        .from('dashboard_state')
+        .upsert({
+          user_id: currentCloudUser.id,
+          state: JSON.parse(json),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+
+      if(error) throw error;
+      lastCloudStateJson = json;
+      setSaveStatus('실시간 공유 저장됨 ✓ ' + new Date().toLocaleTimeString('ko-KR'));
+    }catch(e){
+      console.error('Supabase save failed:', e);
+      setSaveStatus('⚠ 클라우드 저장 실패 — 이 기기에는 저장됨', true);
+    }finally{
+      cloudSaveInFlight = false;
+      // 저장 중 다른 변경이 들어왔다면 한 번 더 반영
+      if(currentCloudUser && stateJson() !== lastCloudStateJson) persist();
     }
   }, 400);
 }
+
+
+/* ============================================================
+   Supabase 인증 · 최초 마이그레이션 · Realtime
+============================================================ */
+function showCloudLogin(message=''){
+  const overlay = document.getElementById('cloudLoginOverlay');
+  if(!overlay) return;
+  overlay.classList.remove('lf-hidden');
+  document.getElementById('cloudLoginMsg').textContent = message;
+}
+function hideCloudLogin(){
+  const overlay = document.getElementById('cloudLoginOverlay');
+  if(overlay) overlay.classList.add('lf-hidden');
+}
+
+async function loadCloudStateOrMigrateLocal(){
+  const { data, error } = await supabaseClient
+    .from('dashboard_state')
+    .select('state, updated_at')
+    .eq('user_id', currentCloudUser.id)
+    .maybeSingle();
+
+  if(error) throw error;
+
+  if(data && data.state){
+    state = normalizeLoadedState(data.state);
+    lastCloudStateJson = stateJson();
+    try{ localStorage.setItem(STORAGE_KEY, lastCloudStateJson); }catch(e){}
+    initAll();
+    setSaveStatus('클라우드에서 불러옴 ✓');
+  }else{
+    // DB가 비어 있으면 현재 기기의 localStorage 데이터를 최초 1회 업로드
+    const initialJson = stateJson();
+    const { error: insertError } = await supabaseClient
+      .from('dashboard_state')
+      .insert({
+        user_id: currentCloudUser.id,
+        state: JSON.parse(initialJson),
+        updated_at: new Date().toISOString()
+      });
+    if(insertError) throw insertError;
+    lastCloudStateJson = initialJson;
+    setSaveStatus('기존 데이터를 클라우드로 이전 완료 ✓');
+  }
+}
+
+function subscribeCloudRealtime(){
+  if(realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
+
+  realtimeChannel = supabaseClient
+    .channel('dashboard-state-' + currentCloudUser.id)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'dashboard_state',
+      filter: `user_id=eq.${currentCloudUser.id}`
+    }, payload => {
+      const incoming = payload?.new?.state;
+      if(!incoming) return;
+
+      const incomingJson = JSON.stringify(incoming);
+      lastCloudStateJson = incomingJson;
+
+      // 내가 방금 저장한 내용이면 화면을 다시 그릴 필요 없음
+      if(incomingJson === stateJson()) return;
+
+      state = normalizeLoadedState(incoming);
+      try{ localStorage.setItem(STORAGE_KEY, incomingJson); }catch(e){}
+      initAll();
+      setSaveStatus('다른 기기 변경사항 수신 ✓ ' + new Date().toLocaleTimeString('ko-KR'));
+      toast('다른 기기에서 변경한 내용이 반영되었습니다');
+    })
+    .subscribe();
+}
+
+async function startCloudSession(user){
+  currentCloudUser = user;
+  hideCloudLogin();
+  setSaveStatus('클라우드 연결 중…');
+  await loadCloudStateOrMigrateLocal();
+  subscribeCloudRealtime();
+}
+
+async function initCloudSync(){
+  if(!CLOUD_CONFIGURED){
+    setSaveStatus('이 기기에 자동 저장됨 ✓ · Supabase 미설정');
+    return false;
+  }
+
+  try{
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    });
+
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    if(error) throw error;
+
+    if(session?.user){
+      await startCloudSession(session.user);
+      return true;
+    }
+
+    showCloudLogin('공유에 사용할 Supabase 계정으로 로그인하세요.');
+    setSaveStatus('클라우드 로그인 필요', true);
+    return false;
+  }catch(e){
+    console.error('Supabase init failed:', e);
+    setSaveStatus('⚠ Supabase 연결 실패 — 로컬 모드로 동작 중', true);
+    return false;
+  }
+}
+
+document.getElementById('cloudLoginBtn').addEventListener('click', async ()=>{
+  if(!supabaseClient) return;
+  const email = document.getElementById('cloudEmail').value.trim();
+  const password = document.getElementById('cloudPassword').value;
+  const msg = document.getElementById('cloudLoginMsg');
+  const btn = document.getElementById('cloudLoginBtn');
+
+  if(!email || !password){
+    msg.textContent = '이메일과 비밀번호를 입력하세요.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '로그인 중…';
+  msg.textContent = '';
+  try{
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if(error) throw error;
+    await startCloudSession(data.user);
+    toast('공유 가계부에 연결되었습니다');
+    autoFetchFx();
+  }catch(e){
+    console.error(e);
+    msg.textContent = '로그인 실패: ' + (e.message || '계정 정보를 확인하세요.');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = '로그인';
+  }
+});
+
+document.getElementById('cloudPassword').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') document.getElementById('cloudLoginBtn').click();
+});
+
 
 /* ============================================================
    포맷 · Formatting
@@ -2466,7 +2513,13 @@ function initAll(){
 }
 bindAssetsEvents();
 initAll();
-autoFetchFx(); // 페이지를 열 때마다 환율 자동 갱신
+
+(async ()=>{
+  const cloudReady = await initCloudSync();
+  // 클라우드 사용 시에는 원격 상태를 먼저 받은 뒤 시세를 갱신해야
+  // 다른 기기의 최신 데이터를 로컬 초기값으로 덮어쓰지 않습니다.
+  if(cloudReady || !CLOUD_CONFIGURED) autoFetchFx();
+})();
 
 /* PWA: 서비스워커 등록 — 실제로 https(또는 localhost)로 호스팅됐을 때만 동작하고,
    file://로 직접 열었을 때는 브라우저가 등록을 지원하지 않으므로 조용히 넘어간다 */

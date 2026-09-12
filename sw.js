@@ -1,8 +1,8 @@
 /* 가계부 PWA 서비스워커
    - 앱 껍데기(HTML/manifest/아이콘)를 캐시해서 오프라인에서도 열리게 함
-   - 데이터 자체(거래내역 등)는 원래대로 브라우저 localStorage에 저장됨 — 이 파일과 무관
+   - 거래 데이터는 Supabase와 동기화하며 localStorage에도 로컬 백업으로 저장됨
    - 캐시 이름의 버전(v1)을 올리면 예전 캐시를 정리하고 새로 받아옴 */
-const CACHE_NAME = 'household-dashboard-v1';
+const CACHE_NAME = 'household-dashboard-v2';
 const APP_SHELL = [
   './',
   './index.html',
