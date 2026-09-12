@@ -143,6 +143,34 @@
     display:inline-flex;align-items:center;justify-content:center;}
   .lf-cat-gear:hover{background:rgba(122,95,44,.14);}
 
+
+  /* Screenshot OCR importer */
+  .ocr-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px;}
+  .ocr-help{font-size:11px;color:var(--ink-soft);}
+  .ocr-file{display:none;}
+  .ocr-missing{border:2px solid #c9362b !important;box-shadow:0 0 0 1px rgba(201,54,43,.08);}
+  .ocr-autofilled{border-color:#3f7c59 !important;}
+  .ocr-modal{position:fixed;inset:0;background:rgba(20,24,28,.52);z-index:160;display:flex;align-items:center;justify-content:center;padding:18px;}
+  .ocr-modal.lf-hidden{display:none;}
+  .ocr-card{width:min(1100px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--paper-line);border-radius:10px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);}
+  .ocr-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;}
+  .ocr-head h3{margin:0;font-family:'Noto Serif KR',serif;font-size:17px;}
+  .ocr-progress{font-size:12px;color:var(--ink-soft);margin:8px 0;}
+  .ocr-preview{width:100%;border-collapse:collapse;font-size:12px;}
+  .ocr-preview th,.ocr-preview td{border-bottom:1px solid var(--paper-line);padding:6px;vertical-align:middle;}
+  .ocr-preview input,.ocr-preview select{width:100%;min-width:92px;font-family:'Noto Sans KR',sans-serif;font-size:12px;border:1px solid var(--paper-line);border-radius:4px;padding:6px;background:var(--input-bg);color:var(--ink);box-sizing:border-box;}
+  .ocr-preview .memo{min-width:160px;}
+  .ocr-preview .amount{min-width:100px;text-align:right;font-family:'IBM Plex Mono',monospace;}
+  .ocr-dup{background:rgba(190,140,30,.10);}
+  .ocr-badge{display:inline-block;font-size:10px;padding:2px 5px;border-radius:10px;background:rgba(63,124,89,.12);color:#2f6547;margin-left:4px;white-space:nowrap;}
+  .ocr-warn{font-size:10px;color:#9a6417;white-space:nowrap;}
+  .ocr-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;}
+  @media(max-width:700px){
+    .ocr-card{padding:12px;width:98vw;}
+    .ocr-preview{display:block;overflow-x:auto;white-space:nowrap;}
+    .ocr-preview input,.ocr-preview select{min-width:110px;}
+  }
+
   .monthbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
   .monthbar select{font-family:'IBM Plex Mono',monospace;font-size:13px;padding:6px 8px;border:1px solid var(--paper-line);border-radius:4px;}
   .statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
@@ -297,6 +325,7 @@
 
 <!-- Supabase: shared cloud database + realtime sync -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <body>
 <div class="wrap">
 
@@ -331,6 +360,11 @@
     <section class="panel">
       <h2><span class="idx">입력</span>새 거래 추가 · Add Transaction</h2>
       <p class="note">지출은 <b>결제수단</b>을 고르면 연결된 계좌에서 바로 차감돼요. 저축·투자 → <b>예수금</b>은 출금·입금 계좌만 고르면 되고(보내는 돈 = 받는 돈이라 금액은 한 칸), <b>외화</b>는 환전이라 보내는 금액과 받는 금액을 따로 입력해요(예: 나무 증권(원화) → 나무 증권(외화)). <b>주식</b>은 계좌·매매구분·종목을 고르면 예수금과 투자 탭 포트폴리오에 자동 반영됩니다.</p>
+      <div class="ocr-toolbar">
+        <input class="ocr-file" id="ocrFileInput" type="file" accept="image/*">
+        <button type="button" class="btn small brass" id="ocrUploadBtn">📷 토스·뱅크샐러드 캡처 불러오기</button>
+        <span class="ocr-help">이미지는 이 기기에서 OCR 처리됩니다. 날짜·내용·금액은 자동 추출하고, 카테고리는 사용 이력을 학습해 추천합니다.</span>
+      </div>
       <div class="ledgerform">
         <div><label>날짜</label><input type="date" id="lf-date"></div>
         <div><label class="lf-cat-label">사용자<button type="button" class="lf-cat-gear" id="userManageBtn" title="사용자 관리">⚙</button></label><select id="lf-user" style="width:90px"></select></div>
@@ -650,6 +684,28 @@
 </div>
 
 
+<div class="ocr-modal lf-hidden" id="ocrModal" aria-hidden="true">
+  <div class="ocr-card">
+    <div class="ocr-head">
+      <div>
+        <h3>캡처 거래 가져오기</h3>
+        <div class="ocr-progress" id="ocrProgress">이미지를 선택해주세요.</div>
+      </div>
+      <button type="button" class="btn small ghost" id="ocrCloseBtn">닫기</button>
+    </div>
+    <div class="tablewrap">
+      <table class="ocr-preview">
+        <thead><tr><th>선택</th><th>날짜</th><th>내용</th><th>금액</th><th>카테고리</th><th>지출 방식</th><th>상태</th><th></th></tr></thead>
+        <tbody id="ocrPreviewBody"></tbody>
+      </table>
+    </div>
+    <div class="ocr-foot">
+      <span class="ocr-help">빨간 테두리 = 자동 인식되지 않았거나 아직 선택하지 않은 필수 항목. 중복 의심 거래는 기본 선택에서 제외됩니다.</span>
+      <button type="button" class="btn brass" id="ocrAddSelectedBtn">선택한 거래 등록</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ============================================================
    상수 · Constants
@@ -746,6 +802,7 @@ function setSaveStatus(text, isError=false){
 
 function normalizeLoadedState(parsed){
   if(parsed && !parsed.schemaVersion) parsed.schemaVersion = 1;
+  if(parsed && !parsed.merchantCategoryRules) parsed.merchantCategoryRules = {};
   if(!parsed || typeof parsed !== 'object') return defaultState();
   if(!parsed.cats) parsed.cats = JSON.parse(JSON.stringify(DEFAULT_CATS));
   if(!parsed.users || !parsed.users.length) parsed.users = [...DEFAULT_USERS];
@@ -773,7 +830,8 @@ const LEDGER_SEED = [];
 
 function defaultState(){
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    merchantCategoryRules: {},
     usdRate: { value: 0, source: 'manual' },
     jpyRate: { value: 0, source: 'manual' },
     cashAccounts: [],
@@ -1947,6 +2005,215 @@ document.getElementById('lf-market').addEventListener('change', ()=>{
   document.getElementById('lf-stockname-suggest').style.display='none';
 });
 
+
+/* ============================================================
+   캡처 OCR + 학습형 카테고리 추천
+   - OCR은 브라우저에서 Tesseract.js로 처리합니다.
+   - merchantCategoryRules는 사용자가 확정한 "내용→카테고리"를 누적 학습합니다.
+============================================================ */
+let ocrRows = [];
+
+function ocrEscape(v){
+  return String(v??'').replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function normalizeMerchant(text){
+  return String(text||'').toLowerCase()
+    .replace(/\([^)]*\)/g,' ')
+    .replace(/주식회사|유한회사|㈜|결제|승인|체크카드|신용카드|카드|일시불|온라인|오프라인/g,' ')
+    .replace(/[0-9]{2,}/g,' ')
+    .replace(/[^0-9a-z가-힣]+/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+function learnMerchantCategory(memo, category){
+  if(!memo || !category || category==='기타') return;
+  const key = normalizeMerchant(memo); if(key.length<2) return;
+  state.merchantCategoryRules ||= {};
+  const rec = state.merchantCategoryRules[key] || {counts:{}, total:0};
+  rec.counts[category] = (rec.counts[category]||0)+1;
+  rec.total = (rec.total||0)+1;
+  state.merchantCategoryRules[key] = rec;
+}
+function suggestCategoryForMemo(memo){
+  const key = normalizeMerchant(memo); if(!key) return {category:'', confidence:0, source:''};
+  const votes = {};
+  const add=(cat,w)=>{ if(cat) votes[cat]=(votes[cat]||0)+w; };
+  // Explicit accumulated rules have highest weight.
+  for(const [rk,rec] of Object.entries(state.merchantCategoryRules||{})){
+    if(rk===key || (rk.length>=3 && key.includes(rk)) || (key.length>=3 && rk.includes(key))){
+      for(const [cat,n] of Object.entries(rec.counts||{})) add(cat, n*4);
+    }
+  }
+  // Existing ledger is also training data, so old records work immediately.
+  for(const r of (state.ledger||[])){
+    if(r.major!=='지출' || !r.memo || !r.category) continue;
+    const old=normalizeMerchant(r.memo);
+    if(old===key) add(r.category,3);
+    else if(old.length>=3 && key.length>=3 && (old.includes(key)||key.includes(old))) add(r.category,1);
+  }
+  const sorted=Object.entries(votes).sort((a,b)=>b[1]-a[1]);
+  if(!sorted.length) return {category:'',confidence:0,source:''};
+  const total=sorted.reduce((a,x)=>a+x[1],0);
+  return {category:sorted[0][0], confidence:sorted[0][1]/total, source:'학습'};
+}
+function parseOcrDate(raw, fallbackYear){
+  const t=String(raw||'').replace(/\s+/g,' ');
+  let m=t.match(/(20\d{2})[.\/-]\s*(\d{1,2})[.\/-]\s*(\d{1,2})/);
+  if(m) return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`;
+  m=t.match(/(20\d{2})년\s*(\d{1,2})월\s*(\d{1,2})일/);
+  if(m) return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`;
+  m=t.match(/(?:^|\s)(\d{1,2})[.\/-]\s*(\d{1,2})(?:\s|$)/);
+  if(m){
+    const y=fallbackYear||new Date().getFullYear();
+    return `${y}-${String(+m[1]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`;
+  }
+  m=t.match(/(\d{1,2})월\s*(\d{1,2})일/);
+  if(m){ const y=fallbackYear||new Date().getFullYear(); return `${y}-${String(+m[1]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`; }
+  return '';
+}
+function cleanOcrMemo(line){
+  return String(line||'')
+    .replace(/20\d{2}[.\/-]\d{1,2}[.\/-]\d{1,2}/g,' ')
+    .replace(/\d{1,2}[.\/-]\d{1,2}/g,' ')
+    .replace(/\d{1,2}:\d{2}/g,' ')
+    .replace(/[+-]?\s*\d{1,3}(?:,\d{3})+\s*원?/g,' ')
+    .replace(/[+-]?\s*\d{3,}\s*원/g,' ')
+    .replace(/(결제|승인|출금|체크카드|신용카드|일시불|사용|완료|원)$/g,' ')
+    .replace(/[|·•]/g,' ').replace(/\s+/g,' ').trim();
+}
+function likelyMerchantLine(line){
+  const t=cleanOcrMemo(line);
+  if(t.length<2) return '';
+  if(/^(오늘|어제|이번달|지난달|전체|내역|지출|소비|거래|결제내역|카드내역)$/i.test(t)) return '';
+  if(/잔액|합계|총액|예정|캐시백|혜택|계좌|자산/.test(t)) return '';
+  return t;
+}
+function parseExpenseScreenshot(text){
+  const rawLines=String(text||'').split(/\n+/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
+  const rows=[]; let currentDate=''; const y=new Date().getFullYear();
+  for(let i=0;i<rawLines.length;i++){
+    const line=rawLines[i];
+    const foundDate=parseOcrDate(line,y); if(foundDate) currentDate=foundDate;
+    if(/잔액|총\s*지출|총\s*사용|합계|이번달\s*사용|결제예정|청구예정/.test(line)) continue;
+    const matches=[...line.matchAll(/(?:^|\s|[-+])([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,})\s*원?(?=\s|$)/g)];
+    if(!matches.length) continue;
+    const nums=matches.map(m=>+m[1].replace(/,/g,''))
+      .filter(n=>n>=10 && n<100000000);
+    if(!nums.length) continue;
+    const amount=nums[nums.length-1];
+    let memo=likelyMerchantLine(line);
+    // If the amount line is mostly numeric/status text, use nearby text as merchant.
+    if(!memo || memo.length<2 || /^[-+0-9, 원]+$/.test(memo)){
+      for(let j=i-1;j>=Math.max(0,i-2);j--){ const cand=likelyMerchantLine(rawLines[j]); if(cand && !parseOcrDate(cand,y)){ memo=cand; break; } }
+    }
+    // Strip amount again in case OCR spacing prevented the earlier cleaner.
+    memo=String(memo||'').replace(String(amount),'').replace(/\s+/g,' ').trim();
+    if(!memo || /잔액|합계|총액/.test(memo)) continue;
+    const date=foundDate||currentDate||'';
+    const sig=`${date}|${normalizeMerchant(memo)}|${amount}`;
+    if(rows.some(r=>r.sig===sig)) continue;
+    const sug=suggestCategoryForMemo(memo);
+    rows.push({id:'ocr_'+i, date, memo, amount, category:sug.category||'', pay:'', suggested:!!sug.category, confidence:sug.confidence||0, sig});
+  }
+  return rows.slice(0,80);
+}
+function isOcrDuplicate(r){
+  return (state.ledger||[]).some(x=>x.major==='지출' && x.date===r.date && +x.amount===+r.amount && normalizeMerchant(x.memo)===normalizeMerchant(r.memo));
+}
+function ocrCategoryOptions(selected){
+  const cats=state.cats['지출']||[];
+  return `<option value="">선택</option>`+cats.map(c=>`<option value="${ocrEscape(c)}" ${c===selected?'selected':''}>${ocrEscape(c)}</option>`).join('');
+}
+function ocrPayOptions(selected){
+  const opts=(state.paymentMethods||[]).map(p=>({v:'PM:'+p.id,n:p.name}));
+  (state.cashAccounts||[]).filter(a=>a.type==='payment').forEach(a=>opts.push({v:'TR:'+a.id,n:'이체 · '+a.name}));
+  return `<option value="">선택</option>`+opts.map(o=>`<option value="${ocrEscape(o.v)}" ${o.v===String(selected)?'selected':''}>${ocrEscape(o.n)}</option>`).join('');
+}
+function ocrFieldClass(v){ return v ? '' : 'ocr-missing'; }
+function renderOcrRows(){
+  const body=document.getElementById('ocrPreviewBody');
+  if(!ocrRows.length){ body.innerHTML='<tr><td colspan="8" style="padding:18px;color:var(--ink-soft);">거래를 찾지 못했습니다. 더 선명한 캡처를 사용하거나 필요한 값을 직접 입력해주세요.</td></tr>'; return; }
+  body.innerHTML=ocrRows.map((r,i)=>{
+    const dup=isOcrDuplicate(r); r.duplicate=dup;
+    return `<tr data-i="${i}" class="${dup?'ocr-dup':''}">
+      <td><input type="checkbox" data-f="checked" ${dup?'':'checked'} style="width:auto;min-width:0"></td>
+      <td><input type="date" data-f="date" class="${ocrFieldClass(r.date)}" value="${ocrEscape(r.date)}"></td>
+      <td><input class="memo ${ocrFieldClass(r.memo)}" data-f="memo" value="${ocrEscape(r.memo)}"></td>
+      <td><input type="number" class="amount ${ocrFieldClass(r.amount)}" data-f="amount" value="${r.amount||''}"></td>
+      <td><select data-f="category" class="${ocrFieldClass(r.category)}">${ocrCategoryOptions(r.category)}</select>${r.suggested?`<span class="ocr-badge">학습 추천${r.confidence?` ${Math.round(r.confidence*100)}%`:''}</span>`:''}</td>
+      <td><select data-f="pay" class="${ocrFieldClass(r.pay)}">${ocrPayOptions(r.pay)}</select></td>
+      <td>${dup?'<span class="ocr-warn">중복 의심</span>':'-'}</td>
+      <td><button type="button" class="btn tiny ghost" data-act="fill">폼에 채우기</button></td>
+    </tr>`;
+  }).join('');
+}
+function validateOcrRow(r){ return !!(r.date && r.memo && +r.amount>0 && r.category && r.pay); }
+function syncOcrRowFromTr(tr){
+  const i=+tr.dataset.i, r=ocrRows[i]; if(!r) return null;
+  tr.querySelectorAll('[data-f]').forEach(el=>{
+    const f=el.dataset.f; if(f==='checked') r.checked=el.checked; else r[f]=el.value;
+    if(f!=='checked') el.classList.toggle('ocr-missing', !el.value || (f==='amount' && +el.value<=0));
+  });
+  r.amount=+r.amount||0; return r;
+}
+function fillMainFormFromOcr(r){
+  document.getElementById('lf-major').value='지출'; populateLfCategory(); updateLfFieldVisibility();
+  document.getElementById('lf-date').value=r.date||'';
+  document.getElementById('lf-memo').value=r.memo||'';
+  document.getElementById('lf-amount').value=r.amount||'';
+  if(r.category && (state.cats['지출']||[]).includes(r.category)) document.getElementById('lf-category').value=r.category;
+  populateLfPayOptions();
+  if(r.pay){
+    if(String(r.pay).startsWith('PM:')) document.getElementById('lf-pay').value=String(r.pay).slice(3);
+    else if(String(r.pay).startsWith('TR:')){ document.getElementById('lf-pay').value='TRANSFER'; updateLfPayGroupVisibility(); document.getElementById('lf-transfer-account').value=String(r.pay).slice(3); }
+  }
+  [['lf-date',r.date],['lf-memo',r.memo],['lf-amount',r.amount],['lf-category',r.category],['lf-pay',r.pay]].forEach(([id,v])=>{
+    const el=document.getElementById(id); if(el) el.classList.toggle('ocr-missing',!v);
+  });
+  updateLfPayGroupVisibility();
+  document.getElementById('ocrModal').classList.add('lf-hidden');
+  toast('입력폼에 채웠습니다. 빨간 칸을 확인해주세요.');
+}
+async function runOcrFile(file){
+  const modal=document.getElementById('ocrModal'), prog=document.getElementById('ocrProgress');
+  modal.classList.remove('lf-hidden'); document.getElementById('ocrPreviewBody').innerHTML='';
+  if(!window.Tesseract){ prog.textContent='OCR 모듈을 불러오지 못했습니다. 인터넷 연결을 확인해주세요.'; return; }
+  prog.textContent='이미지를 읽는 중… 0%';
+  try{
+    const result=await Tesseract.recognize(file,'kor+eng',{logger:m=>{
+      if(m.status==='recognizing text') prog.textContent=`문자를 읽는 중… ${Math.round((m.progress||0)*100)}%`;
+      else if(m.status) prog.textContent=`OCR 준비 중… ${m.status}`;
+    }});
+    ocrRows=parseExpenseScreenshot(result.data.text);
+    prog.textContent=`완료 · 거래 후보 ${ocrRows.length}건을 찾았습니다. 인식 결과를 확인해주세요.`;
+    renderOcrRows();
+  }catch(e){ console.error(e); prog.textContent='OCR 처리에 실패했습니다. 이미지가 너무 크거나 네트워크 연결이 끊겼을 수 있습니다.'; }
+}
+document.getElementById('ocrUploadBtn').addEventListener('click',()=>document.getElementById('ocrFileInput').click());
+document.getElementById('ocrFileInput').addEventListener('change',e=>{ const f=e.target.files&&e.target.files[0]; if(f) runOcrFile(f); e.target.value=''; });
+document.getElementById('ocrCloseBtn').addEventListener('click',()=>document.getElementById('ocrModal').classList.add('lf-hidden'));
+document.getElementById('ocrPreviewBody').addEventListener('input',e=>{ const tr=e.target.closest('tr[data-i]'); if(tr) syncOcrRowFromTr(tr); });
+document.getElementById('ocrPreviewBody').addEventListener('change',e=>{ const tr=e.target.closest('tr[data-i]'); if(tr) syncOcrRowFromTr(tr); });
+document.getElementById('ocrPreviewBody').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-act="fill"]'); if(!btn) return; const tr=btn.closest('tr[data-i]'); const r=syncOcrRowFromTr(tr); if(r) fillMainFormFromOcr(r);
+});
+document.getElementById('ocrAddSelectedBtn').addEventListener('click',()=>{
+  const trs=[...document.querySelectorAll('#ocrPreviewBody tr[data-i]')]; let added=0, blocked=0;
+  trs.forEach(tr=>{
+    const r=syncOcrRowFromTr(tr); const checked=tr.querySelector('[data-f="checked"]')?.checked;
+    if(!checked) return;
+    if(!validateOcrRow(r)){ blocked++; return; }
+    if(isOcrDuplicate(r)){ blocked++; return; }
+    const entry={id:uid(),date:r.date,user:document.getElementById('lf-user').value||'',major:'지출',category:r.category,currency:'KRW',memo:r.memo,amount:+r.amount};
+    if(String(r.pay).startsWith('TR:')){ entry.paymentMethodId=null; entry.transferAccountId=+String(r.pay).slice(3)||null; }
+    else if(String(r.pay).startsWith('PM:')) entry.paymentMethodId=+String(r.pay).slice(3)||null;
+    else { blocked++; return; }
+    state.ledger.push(entry); applyLedgerEntry(entry); learnMerchantCategory(r.memo,r.category); added++;
+  });
+  renderRecentLedger(); renderHistory(); renderAssetsTab(); recalcAll(); persist();
+  if(added) toast(`${added}건 등록 완료${blocked?` · ${blocked}건은 확인 필요`:''}`); else toast('등록할 수 있는 완성된 거래가 없습니다');
+  if(added && !blocked) document.getElementById('ocrModal').classList.add('lf-hidden'); else renderOcrRows();
+});
+
 function addLedgerEntryFromForm(){
   const date = document.getElementById('lf-date').value || new Date().toISOString().slice(0,10);
   const user = document.getElementById('lf-user').value || '';
@@ -2019,6 +2286,7 @@ function addLedgerEntryFromForm(){
   }
 
   state.ledger.push(entry);
+  if(entry.major==='지출') learnMerchantCategory(entry.memo, entry.category);
   applyLedgerEntry(entry);
 
   document.getElementById('lf-memo').value=''; document.getElementById('lf-amount').value='';
