@@ -2,7 +2,7 @@
    - 앱 껍데기(HTML/manifest/아이콘)를 캐시해서 오프라인에서도 열리게 함
    - 거래 데이터는 Supabase와 동기화하며 localStorage에도 로컬 백업으로 저장됨
    - 캐시 이름의 버전(v1)을 올리면 예전 캐시를 정리하고 새로 받아옴 */
-const CACHE_NAME = 'household-dashboard-v5';
+const CACHE_NAME = 'household-dashboard-v6';
 const APP_SHELL = [
   './',
   './index.html',
@@ -32,6 +32,12 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return; // 외부 API는 서비스워커가 관여하지 않음
+
+  // 빌드 정보는 항상 네트워크에서 최신값을 확인하고 캐시하지 않음
+  if (url.pathname.endsWith('/version.json')) {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }));
+    return;
+  }
 
   event.respondWith(
     fetch(event.request)

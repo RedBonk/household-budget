@@ -119,6 +119,9 @@
   .summary td.name{font-weight:700;font-family:'Noto Serif KR',serif;}
   .tablewrap{overflow-x:auto;}
   footer{text-align:center;font-size:11px;color:var(--ink-soft);margin-top:34px;}
+  .app-version{margin-top:8px;font-size:10px;color:var(--ink-soft);letter-spacing:.02em;}
+  .app-version b{color:var(--ink);font-weight:600;}
+  .app-version .build{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
     padding:10px 18px;border-radius:5px;font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:99;}
   .toast.show{opacity:1;}
@@ -156,6 +159,9 @@
   .paste-status{font-size:11px;color:var(--ink-soft);margin-top:8px;min-height:18px;}
   .ocr-missing{border:2px solid #c9362b !important;box-shadow:0 0 0 1px rgba(201,54,43,.08);}
   .ocr-autofilled{border-color:#3f7c59 !important;}
+  .ocr-field-stack{display:flex;flex-direction:column;gap:4px;min-width:105px;}
+  .ocr-apply-all{border:0;background:transparent;color:var(--ink-soft);font-size:10px;line-height:1;padding:2px 1px;cursor:pointer;text-align:right;text-decoration:underline;text-underline-offset:2px;}
+  .ocr-apply-all:hover{color:var(--ink);}
   .ocr-modal{position:fixed;inset:0;background:rgba(20,24,28,.52);z-index:160;display:flex;align-items:center;justify-content:center;padding:18px;}
   .ocr-modal.lf-hidden{display:none;}
   .ocr-card{width:min(1100px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--paper-line);border-radius:10px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);}
@@ -171,6 +177,12 @@
   .ocr-badge{display:inline-block;font-size:10px;padding:2px 5px;border-radius:10px;background:rgba(63,124,89,.12);color:#2f6547;margin-left:4px;white-space:nowrap;}
   .ocr-warn{font-size:10px;color:#9a6417;white-space:nowrap;}
   .ocr-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;}
+  .dup-modal{position:fixed;inset:0;background:rgba(20,24,28,.58);z-index:190;display:flex;align-items:center;justify-content:center;padding:18px;}
+  .dup-modal.lf-hidden{display:none;}
+  .dup-card{width:min(520px,94vw);background:var(--panel);border:1px solid var(--paper-line);border-radius:10px;padding:18px;box-shadow:0 14px 44px rgba(0,0,0,.28);}
+  .dup-card h3{margin:0 0 10px;font-family:'Noto Serif KR',serif;font-size:17px;}
+  .dup-detail{font-size:12px;line-height:1.7;background:rgba(190,140,30,.08);border:1px solid rgba(190,140,30,.25);border-radius:6px;padding:10px;margin:10px 0;}
+  .dup-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
   @media(max-width:700px){
     .ocr-card{padding:12px;width:98vw;}
     .ocr-preview{display:block;overflow-x:auto;white-space:nowrap;}
@@ -629,6 +641,7 @@
   <footer>
     이 파일을 다운로드해 직접 브라우저로 열면(또는 웹에 호스팅하면) 자동 저장이 정상 동작합니다.<br>
     Download this file and open it directly in your browser (or host it) for autosave to work reliably.
+    <div class="app-version" id="appVersionInfo">가계부 <b>v1.6.0</b> · Build 확인 중…</div>
   </footer>
 </div>
 
@@ -723,13 +736,24 @@
     </div>
     <div class="tablewrap">
       <table class="ocr-preview">
-        <thead><tr><th>선택</th><th>날짜</th><th>내용</th><th>금액</th><th>카테고리</th><th>지출 방식</th><th>상태</th><th></th></tr></thead>
+        <thead><tr><th>선택</th><th>날짜</th><th>내용</th><th>금액</th><th>카테고리</th><th>지출 방식</th><th>상태</th></tr></thead>
         <tbody id="ocrPreviewBody"></tbody>
       </table>
     </div>
     <div class="ocr-foot">
-      <span class="ocr-help">빨간 테두리 = 자동 인식되지 않았거나 아직 선택하지 않은 필수 항목. 중복 의심 거래는 기본 선택에서 제외됩니다.</span>
+      <span class="ocr-help">빨간 테두리 = 자동 인식되지 않았거나 아직 선택하지 않은 필수 항목. 각 입력칸의 ‘이 값을 전체 적용’으로 같은 값을 일괄 적용할 수 있습니다. 중복 의심 거래는 등록 시 확인 팝업이 표시됩니다.</span>
       <button type="button" class="btn brass" id="ocrAddSelectedBtn">선택한 거래 등록</button>
+    </div>
+  </div>
+</div>
+
+<div class="dup-modal lf-hidden" id="dupConfirmModal" aria-hidden="true">
+  <div class="dup-card">
+    <h3>중복 의심 거래</h3>
+    <div id="dupConfirmText"></div>
+    <div class="dup-actions">
+      <button type="button" class="btn ghost" id="dupReviewBtn">확인하기</button>
+      <button type="button" class="btn brass" id="dupAddAnywayBtn">그래도 추가</button>
     </div>
   </div>
 </div>
@@ -2140,12 +2164,19 @@ function parseExpenseScreenshot(text){
     const sig=`${date}|${normalizeMerchant(memo)}|${amount}`;
     if(rows.some(r=>r.sig===sig)) continue;
     const sug=suggestCategoryForMemo(memo);
-    rows.push({id:'ocr_'+i, date, memo, amount, category:sug.category||'', pay:'', suggested:!!sug.category, confidence:sug.confidence||0, sig});
+    rows.push({id:'ocr_'+i, date, memo, amount, category:sug.category||'', pay:'', payTouched:false, suggested:!!sug.category, confidence:sug.confidence||0, sig, checked:true});
   }
   return rows.slice(0,80);
 }
-function isOcrDuplicate(r){
-  return (state.ledger||[]).some(x=>x.major==='지출' && x.date===r.date && +x.amount===+r.amount && normalizeMerchant(x.memo)===normalizeMerchant(r.memo));
+function findOcrDuplicates(r){
+  return (state.ledger||[]).filter(x=>x.major==='지출' && x.date===r.date && +x.amount===+r.amount && normalizeMerchant(x.memo)===normalizeMerchant(r.memo));
+}
+function isOcrDuplicate(r){ return findOcrDuplicates(r).length>0; }
+function defaultCheckCardPay(){
+  const list=state.paymentMethods||[];
+  const exact=list.find(p=>normalizeHeaderName(p.name)==='체크카드');
+  const loose=exact||list.find(p=>normalizeHeaderName(p.name).includes('체크카드'));
+  return loose?'PM:'+loose.id:'';
 }
 function ocrCategoryOptions(selected){
   const cats=state.cats['지출']||[];
@@ -2159,18 +2190,20 @@ function ocrPayOptions(selected){
 function ocrFieldClass(v){ return v ? '' : 'ocr-missing'; }
 function renderOcrRows(){
   const body=document.getElementById('ocrPreviewBody');
-  if(!ocrRows.length){ body.innerHTML='<tr><td colspan="8" style="padding:18px;color:var(--ink-soft);">거래를 찾지 못했습니다. 더 선명한 캡처를 사용하거나 필요한 값을 직접 입력해주세요.</td></tr>'; return; }
+  if(!ocrRows.length){ body.innerHTML='<tr><td colspan="7" style="padding:18px;color:var(--ink-soft);">거래를 찾지 못했습니다. 더 선명한 캡처를 사용하거나 필요한 값을 직접 입력해주세요.</td></tr>'; return; }
+  const defaultPay=defaultCheckCardPay();
   body.innerHTML=ocrRows.map((r,i)=>{
-    const dup=isOcrDuplicate(r); r.duplicate=dup;
+    if(!r.pay && defaultPay && !r.payTouched) r.pay=defaultPay;
+    const dup=!r.added && isOcrDuplicate(r); r.duplicate=dup;
+    const checked=!r.added && r.checked!==false;
     return `<tr data-i="${i}" class="${dup?'ocr-dup':''}">
-      <td><input type="checkbox" data-f="checked" ${dup?'':'checked'} style="width:auto;min-width:0"></td>
-      <td><input type="date" data-f="date" class="${ocrFieldClass(r.date)}" value="${ocrEscape(r.date)}"></td>
-      <td><input class="memo ${ocrFieldClass(r.memo)}" data-f="memo" value="${ocrEscape(r.memo)}"></td>
-      <td><input type="number" class="amount ${ocrFieldClass(r.amount)}" data-f="amount" value="${r.amount||''}"></td>
-      <td><select data-f="category" class="${ocrFieldClass(r.category)}">${ocrCategoryOptions(r.category)}</select>${r.suggested?`<span class="ocr-badge">학습 추천${r.confidence?` ${Math.round(r.confidence*100)}%`:''}</span>`:''}</td>
-      <td><select data-f="pay" class="${ocrFieldClass(r.pay)}">${ocrPayOptions(r.pay)}</select></td>
-      <td>${dup?'<span class="ocr-warn">중복 의심</span>':'-'}</td>
-      <td><button type="button" class="btn tiny ghost" data-act="fill">폼에 채우기</button></td>
+      <td><input type="checkbox" data-f="checked" ${checked?'checked':''} ${r.added?'disabled':''} style="width:auto;min-width:0"></td>
+      <td><div class="ocr-field-stack"><input type="date" data-f="date" class="${ocrFieldClass(r.date)}" value="${ocrEscape(r.date)}"><button type="button" class="ocr-apply-all" data-apply-f="date">이 값을 전체 적용</button></div></td>
+      <td><div class="ocr-field-stack"><input class="memo ${ocrFieldClass(r.memo)}" data-f="memo" value="${ocrEscape(r.memo)}"><button type="button" class="ocr-apply-all" data-apply-f="memo">이 값을 전체 적용</button></div></td>
+      <td><div class="ocr-field-stack"><input type="number" class="amount ${ocrFieldClass(r.amount)}" data-f="amount" value="${r.amount||''}"><button type="button" class="ocr-apply-all" data-apply-f="amount">이 값을 전체 적용</button></div></td>
+      <td><div class="ocr-field-stack"><select data-f="category" class="${ocrFieldClass(r.category)}">${ocrCategoryOptions(r.category)}</select><button type="button" class="ocr-apply-all" data-apply-f="category">이 값을 전체 적용</button></div>${r.suggested?`<span class="ocr-badge">학습 추천${r.confidence?` ${Math.round(r.confidence*100)}%`:''}</span>`:''}</td>
+      <td><div class="ocr-field-stack"><select data-f="pay" class="${ocrFieldClass(r.pay)}">${ocrPayOptions(r.pay)}</select><button type="button" class="ocr-apply-all" data-apply-f="pay">이 값을 전체 적용</button></div></td>
+      <td>${r.added?'<span class="ocr-badge">등록됨</span>':(dup?'<span class="ocr-warn">중복 의심 · 등록 시 확인</span>':'-')}</td>
     </tr>`;
   }).join('');
 }
@@ -2182,24 +2215,6 @@ function syncOcrRowFromTr(tr){
     if(f!=='checked') el.classList.toggle('ocr-missing', !el.value || (f==='amount' && +el.value<=0));
   });
   r.amount=+r.amount||0; return r;
-}
-function fillMainFormFromOcr(r){
-  document.getElementById('lf-major').value='지출'; populateLfCategory(); updateLfFieldVisibility();
-  document.getElementById('lf-date').value=r.date||'';
-  document.getElementById('lf-memo').value=r.memo||'';
-  document.getElementById('lf-amount').value=r.amount||'';
-  if(r.category && (state.cats['지출']||[]).includes(r.category)) document.getElementById('lf-category').value=r.category;
-  populateLfPayOptions();
-  if(r.pay){
-    if(String(r.pay).startsWith('PM:')) document.getElementById('lf-pay').value=String(r.pay).slice(3);
-    else if(String(r.pay).startsWith('TR:')){ document.getElementById('lf-pay').value='TRANSFER'; updateLfPayGroupVisibility(); document.getElementById('lf-transfer-account').value=String(r.pay).slice(3); }
-  }
-  [['lf-date',r.date],['lf-memo',r.memo],['lf-amount',r.amount],['lf-category',r.category],['lf-pay',r.pay]].forEach(([id,v])=>{
-    const el=document.getElementById(id); if(el) el.classList.toggle('ocr-missing',!v);
-  });
-  updateLfPayGroupVisibility();
-  document.getElementById('ocrModal').classList.add('lf-hidden');
-  toast('입력폼에 채웠습니다. 빨간 칸을 확인해주세요.');
 }
 
 function normalizeHeaderName(v){
@@ -2259,7 +2274,7 @@ function parseClipboardTable(text){
     if(!category && rawMemo) sug=suggestCategoryForMemo(rawMemo);
     if(!category && sug.category) category=sug.category;
     const sig=`${date}|${normalizeMerchant(rawMemo)}|${amount}`;
-    rows.push({id:'paste_'+li,date,memo:rawMemo,amount,category,pay,suggested:!!(!map.category && sug.category),confidence:sug.confidence||0,sig});
+    rows.push({id:'paste_'+li,date,memo:rawMemo,amount,category,pay,payTouched:!!pay,suggested:!!(!map.category && sug.category),confidence:sug.confidence||0,sig,checked:true});
   }
   if(!rows.length) throw new Error('가져올 데이터 행이 없습니다.');
   return {rows, headers, mapped:map};
@@ -2313,27 +2328,81 @@ document.getElementById('ocrUploadBtn').addEventListener('click',()=>document.ge
 document.getElementById('ocrFileInput').addEventListener('change',e=>{ const f=e.target.files&&e.target.files[0]; if(f) runOcrFile(f); e.target.value=''; });
 document.getElementById('ocrCloseBtn').addEventListener('click',()=>document.getElementById('ocrModal').classList.add('lf-hidden'));
 document.getElementById('ocrPreviewBody').addEventListener('input',e=>{ const tr=e.target.closest('tr[data-i]'); if(tr) syncOcrRowFromTr(tr); });
-document.getElementById('ocrPreviewBody').addEventListener('change',e=>{ const tr=e.target.closest('tr[data-i]'); if(tr) syncOcrRowFromTr(tr); });
+document.getElementById('ocrPreviewBody').addEventListener('change',e=>{ const tr=e.target.closest('tr[data-i]'); if(tr){ const r=syncOcrRowFromTr(tr); if(r && e.target?.dataset?.f==='pay') r.payTouched=true; } });
 document.getElementById('ocrPreviewBody').addEventListener('click',e=>{
-  const btn=e.target.closest('[data-act="fill"]'); if(!btn) return; const tr=btn.closest('tr[data-i]'); const r=syncOcrRowFromTr(tr); if(r) fillMainFormFromOcr(r);
+  const btn=e.target.closest('[data-apply-f]');
+  if(!btn) return;
+  const tr=btn.closest('tr[data-i]'); if(!tr) return;
+  const r=syncOcrRowFromTr(tr); if(!r) return;
+  const f=btn.dataset.applyF;
+  const labels={date:'날짜',memo:'내용',amount:'금액',category:'카테고리',pay:'지출 방식'};
+  const value=r[f];
+  if(!value || (f==='amount' && +value<=0)){ toast(`${labels[f]} 값을 먼저 입력해주세요`); return; }
+  let display=value;
+  if(f==='amount') display=Number(value).toLocaleString('ko-KR')+'원';
+  if(f==='pay'){
+    const sel=tr.querySelector('[data-f="pay"]');
+    display=sel?.selectedOptions?.[0]?.textContent||value;
+  }
+  if(!confirm(`${labels[f]} '${display}' 값을 아직 등록되지 않은 모든 가져오기 항목에 동일 적용할까요?`)) return;
+  for(const row of ocrRows){
+    if(row.added) continue;
+    row[f]=f==='amount'?(+value||0):value;
+    if(f==='pay') row.payTouched=true;
+    if(f==='category'){ row.suggested=false; row.confidence=0; }
+  }
+  renderOcrRows();
+  toast(`${labels[f]} 값을 전체 항목에 적용했습니다`);
 });
-document.getElementById('ocrAddSelectedBtn').addEventListener('click',()=>{
-  const trs=[...document.querySelectorAll('#ocrPreviewBody tr[data-i]')]; let added=0, blocked=0;
-  trs.forEach(tr=>{
-    const r=syncOcrRowFromTr(tr); const checked=tr.querySelector('[data-f="checked"]')?.checked;
-    if(!checked) return;
-    if(!validateOcrRow(r)){ blocked++; return; }
-    if(isOcrDuplicate(r)){ blocked++; return; }
-    const entry={id:uid(),date:r.date,user:document.getElementById('lf-user').value||'',major:'지출',category:r.category,currency:'KRW',memo:r.memo,amount:+r.amount};
-    if(String(r.pay).startsWith('TR:')){ entry.paymentMethodId=null; entry.transferAccountId=+String(r.pay).slice(3)||null; }
-    else if(String(r.pay).startsWith('PM:')) entry.paymentMethodId=+String(r.pay).slice(3)||null;
-    else { blocked++; return; }
-    state.ledger.push(entry); applyLedgerEntry(entry); learnMerchantCategory(r.memo,r.category); added++;
+let dupDecisionResolve=null;
+function duplicateDecision(r, matches){
+  return new Promise(resolve=>{
+    dupDecisionResolve=resolve;
+    const first=matches[0];
+    const matched=[];
+    if(first?.date===r.date) matched.push(`날짜: ${ocrEscape(r.date)}`);
+    if(+first?.amount===+r.amount) matched.push(`금액: ${Number(r.amount).toLocaleString('ko-KR')}원`);
+    if(normalizeMerchant(first?.memo)===normalizeMerchant(r.memo)) matched.push(`내용: ${ocrEscape(r.memo)}`);
+    document.getElementById('dupConfirmText').innerHTML=`
+      <div>기존 거래와 아래 항목이 중복됩니다.</div>
+      <div class="dup-detail"><b>중복 항목</b><br>${matched.join('<br>')}<br><br><b>기존 거래</b><br>${ocrEscape(first?.date||'')} · ${ocrEscape(first?.memo||'')} · ${Number(first?.amount||0).toLocaleString('ko-KR')}원<br>카테고리: ${ocrEscape(first?.category||'-')}</div>
+      <div style="font-size:11px;color:var(--ink-soft);">현재 편집한 금액·카테고리·지출방식 등은 변경하지 않습니다.</div>`;
+    document.getElementById('dupConfirmModal').classList.remove('lf-hidden');
   });
+}
+function closeDupDecision(result){
+  document.getElementById('dupConfirmModal').classList.add('lf-hidden');
+  if(dupDecisionResolve){ const fn=dupDecisionResolve; dupDecisionResolve=null; fn(result); }
+}
+document.getElementById('dupAddAnywayBtn').addEventListener('click',()=>closeDupDecision('add'));
+document.getElementById('dupReviewBtn').addEventListener('click',()=>closeDupDecision('review'));
+
+function addImportedExpenseRow(r){
+  const entry={id:uid(),date:r.date,user:document.getElementById('lf-user').value||'',major:'지출',category:r.category,currency:'KRW',memo:r.memo,amount:+r.amount};
+  if(String(r.pay).startsWith('TR:')){ entry.paymentMethodId=null; entry.transferAccountId=+String(r.pay).slice(3)||null; }
+  else if(String(r.pay).startsWith('PM:')) entry.paymentMethodId=+String(r.pay).slice(3)||null;
+  else return false;
+  state.ledger.push(entry); applyLedgerEntry(entry); learnMerchantCategory(r.memo,r.category); return true;
+}
+
+document.getElementById('ocrAddSelectedBtn').addEventListener('click',async()=>{
+  const trs=[...document.querySelectorAll('#ocrPreviewBody tr[data-i]')]; let added=0, blocked=0, reviewNeeded=0;
+  for(const tr of trs){
+    const r=syncOcrRowFromTr(tr); const checked=tr.querySelector('[data-f="checked"]')?.checked;
+    if(!checked) continue;
+    if(!validateOcrRow(r)){ blocked++; continue; }
+    const matches=findOcrDuplicates(r);
+    if(matches.length){
+      const decision=await duplicateDecision(r,matches);
+      if(decision!=='add'){ reviewNeeded++; continue; }
+    }
+    if(addImportedExpenseRow(r)){ r.added=true; r.checked=false; added++; } else blocked++;
+  }
   renderRecentLedger(); renderHistory(); renderAssetsTab(); recalcAll(); persist();
-  if(added) toast(`${added}건 등록 완료${blocked?` · ${blocked}건은 확인 필요`:''}`); else toast('등록할 수 있는 완성된 거래가 없습니다');
-  if(added && !blocked) document.getElementById('ocrModal').classList.add('lf-hidden'); else renderOcrRows();
+  if(added) toast(`${added}건 등록 완료${blocked?` · ${blocked}건 입력 확인 필요`:''}${reviewNeeded?` · ${reviewNeeded}건 중복 확인 보류`:''}`); else if(reviewNeeded) toast('중복 의심 거래를 확인해주세요'); else toast('등록할 수 있는 완성된 거래가 없습니다');
+  if(added && !blocked && !reviewNeeded) document.getElementById('ocrModal').classList.add('lf-hidden'); else renderOcrRows();
 });
+
 
 function addLedgerEntryFromForm(){
   const date = document.getElementById('lf-date').value || new Date().toISOString().slice(0,10);
@@ -2956,6 +3025,35 @@ document.addEventListener('visibilitychange', async ()=>{
     console.error('Session resume check failed:', e);
   }
 });
+
+/* ============================================================
+   앱 버전 · GitHub Build 정보
+   - APP_VERSION은 기능 릴리스 버전(사람이 읽기 쉬운 버전)
+   - version.json은 GitHub Actions가 push마다 commit SHA/배포시각을 자동 갱신
+============================================================ */
+const APP_VERSION = '1.6.0';
+
+async function renderAppVersion(){
+  const el = document.getElementById('appVersionInfo');
+  if(!el) return;
+  const fallback = `가계부 <b>v${APP_VERSION}</b>`;
+  try{
+    const res = await fetch(`version.json?ts=${Date.now()}`, { cache:'no-store' });
+    if(!res.ok) throw new Error(`version.json ${res.status}`);
+    const v = await res.json();
+    const sha = String(v.build || v.commit || '').slice(0,7) || 'unknown';
+    const dt = v.builtAt ? new Date(v.builtAt) : null;
+    const when = dt && !Number.isNaN(dt.getTime())
+      ? dt.toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+      : '';
+    const version = v.appVersion || APP_VERSION;
+    el.innerHTML = `가계부 <b>v${version}</b> · Build <span class="build">${sha}</span>${when ? ` · ${when}` : ''}`;
+    el.title = v.commit ? `GitHub commit: ${v.commit}` : '';
+  }catch(e){
+    el.innerHTML = `${fallback} · Build 정보 없음`;
+  }
+}
+renderAppVersion();
 
 /* PWA: 서비스워커 등록 — 실제로 https(또는 localhost)로 호스팅됐을 때만 동작하고,
    file://로 직접 열었을 때는 브라우저가 등록을 지원하지 않으므로 조용히 넘어간다 */
