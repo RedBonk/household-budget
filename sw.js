@@ -2,7 +2,7 @@
    - 온라인에서는 index.html/navigation을 항상 네트워크에서 새로 확인
    - 오프라인일 때만 캐시된 앱 화면을 사용
    - 이전 캐시는 activate 시 삭제 */
-const CACHE_NAME = 'household-dashboard-v12';
+const CACHE_NAME = 'household-dashboard-v15';
 const APP_SHELL = [
   './manifest.json',
   './icon-192.png',

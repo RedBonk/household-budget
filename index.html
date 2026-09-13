@@ -18,7 +18,7 @@
 <meta name="apple-mobile-web-app-title" content="가계부">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
     color-scheme: light dark;
@@ -45,7 +45,7 @@
   .wrap{max-width:1100px;margin:0 auto;}
   header.top{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;
     border-bottom:3px double var(--ink);padding-bottom:14px;margin-bottom:16px;}
-  h1{font-family:'Noto Serif KR',serif;font-weight:700;font-size:24px;margin:0 0 4px;letter-spacing:.5px;}
+  h1{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:24px;margin:0 0 4px;letter-spacing:.5px;}
   .sub{font-size:12px;color:var(--ink-soft);}
   .stamp{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);text-align:right;}
   #lastFetch{color:var(--brass-dark);font-weight:600;}
@@ -53,7 +53,7 @@
 
   nav.tabs{display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--paper-line);}
   nav.tabs button{
-    font-family:'Noto Serif KR',serif;font-weight:700;font-size:14px;
+    font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:14px;
     background:transparent;border:none;padding:10px 18px;cursor:pointer;color:var(--ink-soft);
     border-bottom:3px solid transparent;margin-bottom:-1px;
   }
@@ -78,7 +78,7 @@
 
   section.panel{background:var(--panel);border:1px solid var(--paper-line);box-shadow:var(--shadow);
     border-radius:6px;padding:20px 22px 22px;margin-bottom:20px;}
-  .panel h2{font-family:'Noto Serif KR',serif;font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:8px;}
+  .panel h2{font-family:'Noto Sans KR',sans-serif;font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:8px;}
   .panel h2 .idx{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--brass-dark);
     border:1px solid var(--brass);padding:1px 6px;border-radius:20px;}
   .panel .note{font-size:11.5px;color:var(--ink-soft);margin:0 0 14px;}
@@ -118,7 +118,7 @@
   .fxbox b{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:12.5px;}
   .fxbox input{width:90px;font-family:'IBM Plex Mono',monospace;border:1px solid var(--paper-line);border-radius:4px;padding:5px 6px;text-align:right;}
 
-  .summary td.name{font-weight:700;font-family:'Noto Serif KR',serif;}
+  .summary td.name{font-weight:700;font-family:'Noto Sans KR',sans-serif;}
   .tablewrap{overflow-x:auto;}
   footer{text-align:center;font-size:11px;color:var(--ink-soft);margin-top:34px;}
   .app-version{margin-top:8px;font-size:10px;color:var(--ink-soft);letter-spacing:.02em;}
@@ -166,7 +166,7 @@
   .ocr-modal.lf-hidden{display:none;}
   .ocr-card{width:min(1100px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--paper-line);border-radius:10px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);}
   .ocr-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;}
-  .ocr-head h3{margin:0;font-family:'Noto Serif KR',serif;font-size:17px;}
+  .ocr-head h3{margin:0;font-family:'Noto Sans KR',sans-serif;font-size:17px;}
   .ocr-progress{font-size:12px;color:var(--ink-soft);margin:8px 0;}
   .ocr-preview{width:100%;border-collapse:collapse;font-size:12px;}
   .ocr-preview th,.ocr-preview td{border-bottom:1px solid var(--paper-line);padding:6px;vertical-align:middle;}
@@ -191,7 +191,7 @@
   .dup-modal{position:fixed;inset:0;background:rgba(20,24,28,.58);z-index:190;display:flex;align-items:center;justify-content:center;padding:18px;}
   .dup-modal.lf-hidden{display:none;}
   .dup-card{width:min(520px,94vw);background:var(--panel);border:1px solid var(--paper-line);border-radius:10px;padding:18px;box-shadow:0 14px 44px rgba(0,0,0,.28);}
-  .dup-card h3{margin:0 0 10px;font-family:'Noto Serif KR',serif;font-size:17px;}
+  .dup-card h3{margin:0 0 10px;font-family:'Noto Sans KR',sans-serif;font-size:17px;}
   .dup-detail{font-size:12px;line-height:1.7;background:rgba(190,140,30,.08);border:1px solid rgba(190,140,30,.25);border-radius:6px;padding:10px;margin:10px 0;}
   .dup-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
   @media(max-width:700px){
@@ -297,7 +297,7 @@
   .modal-box{background:var(--panel);border:1px solid var(--paper-line);border-radius:8px;
     padding:22px 24px 20px;width:380px;max-width:100%;max-height:82vh;overflow-y:auto;
     box-shadow:0 12px 40px rgba(30,42,50,.3);}
-  .modal-box h3{font-family:'Noto Serif KR',serif;margin:0 0 4px;font-size:16px;}
+  .modal-box h3{font-family:'Noto Sans KR',sans-serif;margin:0 0 4px;font-size:16px;}
   .modal-box .note{font-size:11.5px;color:var(--ink-soft);margin:0 0 14px;}
   .catlist{display:flex;flex-direction:column;gap:6px;margin:10px 0;max-height:280px;overflow-y:auto;}
   .catlist-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--paper-line);
@@ -652,7 +652,7 @@
   <footer>
     이 파일을 다운로드해 직접 브라우저로 열면(또는 웹에 호스팅하면) 자동 저장이 정상 동작합니다.<br>
     Download this file and open it directly in your browser (or host it) for autosave to work reliably.
-    <div class="app-version" id="appVersionInfo">가계부 <b>v1.6.7</b> · Build 확인 중…</div>
+    <div class="app-version" id="appVersionInfo">가계부 <b>v1.6.9</b> · Build 확인 중…</div>
   </footer>
 </div>
 
@@ -740,8 +740,8 @@
   <div class="ocr-card">
     <div class="ocr-head">
       <div>
-        <h3>캡처 거래 가져오기</h3>
-        <div class="ocr-progress" id="ocrProgress">이미지를 선택해주세요.</div>
+        <h3 id="importPreviewTitle">거래 가져오기</h3>
+        <div class="ocr-progress" id="ocrProgress">가져올 데이터를 선택해주세요.</div>
       </div>
       <button type="button" class="btn small ghost" id="ocrCloseBtn">닫기</button>
     </div>
@@ -2243,13 +2243,75 @@ function likelyMerchantLine(line){
   if(/잔액|합계|총액|예정|캐시백|혜택|계좌|자산/.test(t)) return '';
   return t;
 }
+function inferDayOnlyDate(day){
+  day=Number(day); if(!day || day<1 || day>31) return '';
+  const now=new Date();
+  let y=now.getFullYear(), m=now.getMonth();
+  // A day much larger than today's day is more likely from the previous month.
+  if(day>now.getDate()+7){ m-=1; if(m<0){m=11;y-=1;} }
+  const d=new Date(y,m,day);
+  if(d.getMonth()!==m) return '';
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+function categoryFromOcrContext(text){
+  const t=String(text||'').replace(/\s+/g,' ').trim();
+  const cats=state.cats?.['지출']||[];
+  const exact=cats.find(c=>t.includes(c)); if(exact) return exact;
+  const aliases=[
+    [/커피|카페|음료/,['카페','외식비','식비']],
+    [/영화|공연|티켓|문화/,['문화비','취미']],
+    [/식재료|마트|장보기|슈퍼/,['식비','생활비']],
+    [/병원|약국|의원/,['병원']],
+    [/교통|택시|버스|지하철/,['교통']],
+    [/쇼핑|의류|옷/,['쇼핑']],
+    [/외식|식당|음식/,['외식비','식비']]
+  ];
+  for(const [rx,names] of aliases){ if(rx.test(t)){ const c=names.find(n=>cats.includes(n)); if(c) return c; } }
+  return '';
+}
+function payFromOcrContext(text){
+  const t=normalizeHeaderName(text);
+  for(const pm of (state.paymentMethods||[])){
+    const n=normalizeHeaderName(pm.name);
+    if(n && (t.includes(n)||n.includes(t))) return 'PM:'+pm.id;
+  }
+  if(/체크카드/.test(String(text||''))) return defaultCheckCardPay();
+  return '';
+}
+async function preprocessOcrImage(file){
+  try{
+    const bmp=await createImageBitmap(file);
+    const maxW=1800;
+    const scale=Math.min(2, Math.max(1, maxW/bmp.width));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.round(bmp.width*scale); canvas.height=Math.round(bmp.height*scale);
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(bmp,0,0,canvas.width,canvas.height);
+    const img=ctx.getImageData(0,0,canvas.width,canvas.height), d=img.data;
+    let lum=0, samples=0;
+    for(let i=0;i<d.length;i+=40){ lum+=(d[i]*.2126+d[i+1]*.7152+d[i+2]*.0722); samples++; }
+    const dark=(lum/Math.max(1,samples))<110;
+    for(let i=0;i<d.length;i+=4){
+      let g=Math.round(d[i]*.299+d[i+1]*.587+d[i+2]*.114);
+      if(dark) g=255-g;
+      // gentle contrast boost; keeps anti-aliased Korean glyph edges.
+      g=Math.max(0,Math.min(255,Math.round((g-128)*1.45+128)));
+      d[i]=d[i+1]=d[i+2]=g;
+    }
+    ctx.putImageData(img,0,0);
+    bmp.close?.();
+    return await new Promise(resolve=>canvas.toBlob(b=>resolve(b||file),'image/png',1));
+  }catch(e){ console.warn('OCR preprocessing skipped',e); return file; }
+}
 function parseExpenseScreenshot(text){
   const rawLines=String(text||'').split(/\n+/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
   const rows=[]; let currentDate=''; const y=new Date().getFullYear();
   for(let i=0;i<rawLines.length;i++){
     const line=rawLines[i];
-    const foundDate=parseOcrDate(line,y); if(foundDate) currentDate=foundDate;
-    if(/잔액|총\s*지출|총\s*사용|합계|이번달\s*사용|결제예정|청구예정/.test(line)) continue;
+    let foundDate=parseOcrDate(line,y);
+    if(!foundDate){ const dm=line.match(/(?:^|\s)(\d{1,2})일(?:\s*(?:오늘|어제))?(?:\s|$)/); if(dm) foundDate=inferDayOnlyDate(dm[1]); }
+    if(foundDate){ currentDate=foundDate; continue; }
+    if(/잔액|총\s*지출|총\s*사용|합계|이번달\s*사용|결제예정|청구예정|총\s*\d+건|내역\s*추가|^확인$/.test(line)) continue;
     const matches=[...line.matchAll(/(?:^|\s|[-+])([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,})\s*원?(?=\s|$)/g)];
     if(!matches.length) continue;
     const nums=matches.map(m=>+m[1].replace(/,/g,''))
@@ -2257,18 +2319,23 @@ function parseExpenseScreenshot(text){
     if(!nums.length) continue;
     const amount=nums[nums.length-1];
     let memo=likelyMerchantLine(line);
-    // If the amount line is mostly numeric/status text, use nearby text as merchant.
     if(!memo || memo.length<2 || /^[-+0-9, 원]+$/.test(memo)){
-      for(let j=i-1;j>=Math.max(0,i-2);j--){ const cand=likelyMerchantLine(rawLines[j]); if(cand && !parseOcrDate(cand,y)){ memo=cand; break; } }
+      for(let j=i-1;j>=Math.max(0,i-2);j--){ const cand=likelyMerchantLine(rawLines[j]); if(cand && !parseOcrDate(cand,y) && !/총\s*\d+건/.test(cand)){ memo=cand; break; } }
     }
-    // Strip amount again in case OCR spacing prevented the earlier cleaner.
-    memo=String(memo||'').replace(String(amount),'').replace(/\s+/g,' ').trim();
-    if(!memo || /잔액|합계|총액/.test(memo)) continue;
-    const date=foundDate||currentDate||'';
+    memo=String(memo||'')
+      .replace(/[-+]?\s*[0-9]{1,3}(?:,[0-9]{3})+\s*원?/g,' ')
+      .replace(/[-+]?\s*[0-9]{3,}\s*원/g,' ')
+      .replace(/\s+/g,' ').trim();
+    if(!memo || /잔액|합계|총액|총\s*\d+건/.test(memo)) continue;
+    const date=currentDate||'';
+    const context=[line,rawLines[i+1]||'',rawLines[i+2]||''].join(' ');
+    let sug=suggestCategoryForMemo(memo);
+    const contextCat=categoryFromOcrContext(context);
+    if(contextCat) sug={category:contextCat,confidence:1,source:'캡처'};
+    const pay=payFromOcrContext(context)||defaultCheckCardPay();
     const sig=`${date}|${normalizeMerchant(memo)}|${amount}`;
     if(rows.some(r=>r.sig===sig)) continue;
-    const sug=suggestCategoryForMemo(memo);
-    rows.push({id:'ocr_'+i, date, memo, amount, category:sug.category||'', pay:'', payTouched:false, suggested:!!sug.category, confidence:sug.confidence||0, sig, checked:true});
+    rows.push({id:'ocr_'+i, date, memo, amount, category:sug.category||'', pay, payTouched:!!pay, suggested:!!sug.category, confidence:sug.confidence||0, sig, checked:true});
   }
   return rows.slice(0,80);
 }
@@ -2425,17 +2492,23 @@ function openExcelPaste(){
   document.getElementById('excelPasteStatus').textContent='첫 행은 반드시 컬럼명이어야 합니다.';
   setTimeout(()=>document.getElementById('excelPasteArea').focus(),50);
 }
+function openImportPreview(rows, progressText, sourceLabel){
+  ocrRows=Array.isArray(rows)?rows:[];
+  const title=document.getElementById('importPreviewTitle');
+  if(title) title.textContent=sourceLabel?`거래 가져오기 · ${sourceLabel}`:'거래 가져오기';
+  document.getElementById('ocrProgress').textContent=progressText||`${ocrRows.length}건을 인식했습니다. 내용을 확인하고 수정한 뒤 등록하세요.`;
+  document.getElementById('ocrModal').classList.remove('lf-hidden');
+  renderOcrRows();
+}
+
 function parseExcelPaste(){
   const status=document.getElementById('excelPasteStatus');
   try{
     const parsed=parseClipboardTable(document.getElementById('excelPasteArea').value);
-    ocrRows=parsed.rows;
     document.getElementById('excelPasteModal').classList.add('lf-hidden');
-    document.getElementById('ocrModal').classList.remove('lf-hidden');
     const labels={date:'날짜',memo:'내용',amount:'금액',category:'카테고리',pay:'지출방식'};
     const mapped=Object.keys(parsed.mapped).map(k=>labels[k]).join(' · ');
-    document.getElementById('ocrProgress').textContent=`엑셀 표 ${ocrRows.length}건 인식 완료 · 인식 컬럼: ${mapped}`;
-    renderOcrRows();
+    openImportPreview(parsed.rows,`엑셀 표 ${parsed.rows.length}건 인식 완료 · 인식 컬럼: ${mapped}`,'엑셀');
   }catch(e){ status.textContent=e.message||'표를 읽지 못했습니다.'; }
 }
 
@@ -2450,17 +2523,19 @@ document.getElementById('excelPasteArea').addEventListener('paste',()=>setTimeou
 
 async function runOcrFile(file){
   const modal=document.getElementById('ocrModal'), prog=document.getElementById('ocrProgress');
+  const title=document.getElementById('importPreviewTitle');
+  if(title) title.textContent='거래 가져오기 · OCR';
   modal.classList.remove('lf-hidden'); document.getElementById('ocrPreviewBody').innerHTML='';
   if(!window.Tesseract){ prog.textContent='OCR 모듈을 불러오지 못했습니다. 인터넷 연결을 확인해주세요.'; return; }
   prog.textContent='이미지를 읽는 중… 0%';
   try{
-    const result=await Tesseract.recognize(file,'kor+eng',{logger:m=>{
+    const ocrImage=await preprocessOcrImage(file);
+    const result=await Tesseract.recognize(ocrImage,'kor+eng',{logger:m=>{
       if(m.status==='recognizing text') prog.textContent=`문자를 읽는 중… ${Math.round((m.progress||0)*100)}%`;
       else if(m.status) prog.textContent=`OCR 준비 중… ${m.status}`;
     }});
-    ocrRows=parseExpenseScreenshot(result.data.text);
-    prog.textContent=`완료 · 거래 후보 ${ocrRows.length}건을 찾았습니다. 인식 결과를 확인해주세요.`;
-    renderOcrRows();
+    const rows=parseExpenseScreenshot(result.data.text);
+    openImportPreview(rows,`OCR ${rows.length}건 인식 완료 · 엑셀 가져오기와 동일하게 수정·선택·중복 확인 후 등록할 수 있습니다.`,'OCR');
   }catch(e){ console.error(e); prog.textContent='OCR 처리에 실패했습니다. 이미지가 너무 크거나 네트워크 연결이 끊겼을 수 있습니다.'; }
 }
 document.getElementById('ocrUploadBtn').addEventListener('click',()=>document.getElementById('ocrFileInput').click());
@@ -3227,7 +3302,7 @@ document.addEventListener('visibilitychange', async ()=>{
    - APP_VERSION은 기능 릴리스 버전(사람이 읽기 쉬운 버전)
    - version.json은 GitHub Actions가 push마다 commit SHA/배포시각을 자동 갱신
 ============================================================ */
-const APP_VERSION = '1.6.7';
+const APP_VERSION = '1.6.9';
 
 async function renderAppVersion(){
   const el = document.getElementById('appVersionInfo');
