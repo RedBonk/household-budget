@@ -148,6 +148,12 @@
   .ocr-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px;}
   .ocr-help{font-size:11px;color:var(--ink-soft);}
   .ocr-file{display:none;}
+  .paste-modal{position:fixed;inset:0;background:rgba(20,24,28,.52);z-index:161;display:flex;align-items:center;justify-content:center;padding:18px;}
+  .paste-modal.lf-hidden{display:none;}
+  .paste-card{width:min(820px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--paper-line);border-radius:10px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);}
+  .paste-card textarea{width:100%;min-height:220px;resize:vertical;box-sizing:border-box;background:var(--input-bg);color:var(--ink);border:1px solid var(--paper-line);border-radius:6px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.55;}
+  .paste-example{font-size:11px;color:var(--ink-soft);margin:8px 0 10px;line-height:1.55;}
+  .paste-status{font-size:11px;color:var(--ink-soft);margin-top:8px;min-height:18px;}
   .ocr-missing{border:2px solid #c9362b !important;box-shadow:0 0 0 1px rgba(201,54,43,.08);}
   .ocr-autofilled{border-color:#3f7c59 !important;}
   .ocr-modal{position:fixed;inset:0;background:rgba(20,24,28,.52);z-index:160;display:flex;align-items:center;justify-content:center;padding:18px;}
@@ -363,7 +369,8 @@
       <div class="ocr-toolbar">
         <input class="ocr-file" id="ocrFileInput" type="file" accept="image/*">
         <button type="button" class="btn small brass" id="ocrUploadBtn">📷 토스·뱅크샐러드 캡처 불러오기</button>
-        <span class="ocr-help">이미지는 이 기기에서 OCR 처리됩니다. 날짜·내용·금액은 자동 추출하고, 카테고리는 사용 이력을 학습해 추천합니다.</span>
+        <button type="button" class="btn small ghost" id="excelPasteBtn">📋 엑셀 표 붙여넣기</button>
+        <span class="ocr-help">캡처는 OCR로, 데스크톱에서는 엑셀/스프레드시트 표를 복사해 붙여넣을 수 있습니다. 첫 번째 행의 컬럼명을 자동 인식합니다.</span>
       </div>
       <div class="ledgerform">
         <div><label>날짜</label><input type="date" id="lf-date"></div>
@@ -683,6 +690,27 @@
   </div>
 </div>
 
+
+<div class="paste-modal lf-hidden" id="excelPasteModal" aria-hidden="true">
+  <div class="paste-card">
+    <div class="ocr-head">
+      <div>
+        <h3>엑셀 표 붙여넣기</h3>
+        <div class="paste-example">엑셀/구글시트에서 <b>헤더 행을 포함해</b> 복사한 뒤 아래에 붙여넣으세요. 첫 번째 행의 컬럼명을 기준으로 자동 인식합니다.<br>권장 컬럼: <b>날짜 · 내용(사용처) · 금액</b> / 선택 컬럼: <b>카테고리 · 지출방식(결제수단)</b></div>
+      </div>
+      <button type="button" class="btn small ghost" id="excelPasteCloseBtn">닫기</button>
+    </div>
+    <textarea id="excelPasteArea" placeholder="예시
+날짜	내용	금액	카테고리	지출방식
+2026-09-13	스타벅스	5800	카페	삼성카드
+2026-09-13	GS25	8400		"></textarea>
+    <div class="paste-status" id="excelPasteStatus">첫 행은 반드시 컬럼명이어야 합니다.</div>
+    <div class="ocr-foot">
+      <span class="ocr-help">카테고리나 지출방식이 비어 있으면 미리보기에서 빨간 테두리로 표시됩니다. 과거 사용 이력이 있으면 카테고리를 자동 추천합니다.</span>
+      <button type="button" class="btn brass" id="excelParseBtn">표 인식하기</button>
+    </div>
+  </div>
+</div>
 
 <div class="ocr-modal lf-hidden" id="ocrModal" aria-hidden="true">
   <div class="ocr-card">
@@ -2173,6 +2201,99 @@ function fillMainFormFromOcr(r){
   document.getElementById('ocrModal').classList.add('lf-hidden');
   toast('입력폼에 채웠습니다. 빨간 칸을 확인해주세요.');
 }
+
+function normalizeHeaderName(v){
+  return String(v||'').toLowerCase().trim().replace(/[\s_\-\/()\[\].]+/g,'');
+}
+function headerKind(v){
+  const h=normalizeHeaderName(v);
+  const groups={
+    date:['날짜','일자','거래일','거래일자','결제일','승인일','승인일자','date','transactiondate'],
+    memo:['내용','거래내용','사용처','가맹점','상호','상호명','적요','메모','merchant','description','memo','store'],
+    amount:['금액','지출','지출금액','결제금액','거래금액','이용금액','승인금액','amount','price'],
+    category:['카테고리','분류','지출카테고리','category'],
+    pay:['지출방식','결제수단','결제방법','카드','계좌','payment','paymentmethod','pay']
+  };
+  for(const [k,arr] of Object.entries(groups)) if(arr.some(x=>normalizeHeaderName(x)===h)) return k;
+  return '';
+}
+function parseClipboardTable(text){
+  const lines=String(text||'').replace(/\r/g,'').split('\n').filter((x,i,a)=>x.trim() || (i>0 && i<a.length-1));
+  if(lines.length<2) throw new Error('헤더 포함 최소 2행이 필요합니다.');
+  // Excel/Google Sheets clipboard is tab-delimited. CSV fallback is supported for simple files.
+  const delim=lines[0].includes('\t')?'\t':',';
+  const splitLine=(line)=>{
+    if(delim==='\t') return line.split('\t');
+    const out=[]; let cur='',q=false;
+    for(let i=0;i<line.length;i++){ const ch=line[i]; if(ch==='"'){ if(q&&line[i+1]==='"'){cur+='"';i++;} else q=!q; } else if(ch===','&&!q){out.push(cur);cur='';} else cur+=ch; }
+    out.push(cur); return out;
+  };
+  const headers=splitLine(lines[0]).map(x=>x.trim());
+  const map={}; headers.forEach((h,i)=>{ const k=headerKind(h); if(k && map[k]===undefined) map[k]=i; });
+  const missing=['date','memo','amount'].filter(k=>map[k]===undefined);
+  if(missing.length){
+    const label={date:'날짜',memo:'내용/사용처',amount:'금액'};
+    throw new Error('필수 컬럼을 찾지 못했습니다: '+missing.map(k=>label[k]).join(', ')+' · 첫 행의 컬럼명을 확인해주세요.');
+  }
+  const rows=[];
+  for(let li=1;li<lines.length;li++){
+    const cols=splitLine(lines[li]);
+    if(cols.every(x=>!String(x||'').trim())) continue;
+    const rawDate=String(cols[map.date]??'').trim();
+    const rawMemo=String(cols[map.memo]??'').trim();
+    const rawAmount=String(cols[map.amount]??'').trim();
+    let date=parseOcrDate(rawDate,new Date().getFullYear());
+    // Excel may copy yyyy-mm-dd already; parseOcrDate handles it. Also support yyyyMMdd.
+    if(!date){ const m=rawDate.match(/^(20\d{2})(\d{2})(\d{2})$/); if(m) date=`${m[1]}-${m[2]}-${m[3]}`; }
+    const amount=Math.abs(Number(rawAmount.replace(/[^0-9.-]/g,'')))||0;
+    let category=map.category!==undefined?String(cols[map.category]??'').trim():'';
+    if(category && !(state.cats['지출']||[]).includes(category)) category='';
+    let pay='';
+    if(map.pay!==undefined){
+      const rawPay=String(cols[map.pay]??'').trim(); const np=normalizeHeaderName(rawPay);
+      const pm=(state.paymentMethods||[]).find(x=>normalizeHeaderName(x.name)===np || normalizeHeaderName(x.name).includes(np) || (np&&np.includes(normalizeHeaderName(x.name))));
+      const ac=(state.cashAccounts||[]).filter(a=>a.type==='payment').find(x=>normalizeHeaderName(x.name)===np || normalizeHeaderName(x.name).includes(np) || (np&&np.includes(normalizeHeaderName(x.name))));
+      if(pm) pay='PM:'+pm.id; else if(ac) pay='TR:'+ac.id;
+    }
+    let sug={category:'',confidence:0};
+    if(!category && rawMemo) sug=suggestCategoryForMemo(rawMemo);
+    if(!category && sug.category) category=sug.category;
+    const sig=`${date}|${normalizeMerchant(rawMemo)}|${amount}`;
+    rows.push({id:'paste_'+li,date,memo:rawMemo,amount,category,pay,suggested:!!(!map.category && sug.category),confidence:sug.confidence||0,sig});
+  }
+  if(!rows.length) throw new Error('가져올 데이터 행이 없습니다.');
+  return {rows, headers, mapped:map};
+}
+function openExcelPaste(){
+  const m=document.getElementById('excelPasteModal');
+  m.classList.remove('lf-hidden');
+  document.getElementById('excelPasteArea').value='';
+  document.getElementById('excelPasteStatus').textContent='첫 행은 반드시 컬럼명이어야 합니다.';
+  setTimeout(()=>document.getElementById('excelPasteArea').focus(),50);
+}
+function parseExcelPaste(){
+  const status=document.getElementById('excelPasteStatus');
+  try{
+    const parsed=parseClipboardTable(document.getElementById('excelPasteArea').value);
+    ocrRows=parsed.rows;
+    document.getElementById('excelPasteModal').classList.add('lf-hidden');
+    document.getElementById('ocrModal').classList.remove('lf-hidden');
+    const labels={date:'날짜',memo:'내용',amount:'금액',category:'카테고리',pay:'지출방식'};
+    const mapped=Object.keys(parsed.mapped).map(k=>labels[k]).join(' · ');
+    document.getElementById('ocrProgress').textContent=`엑셀 표 ${ocrRows.length}건 인식 완료 · 인식 컬럼: ${mapped}`;
+    renderOcrRows();
+  }catch(e){ status.textContent=e.message||'표를 읽지 못했습니다.'; }
+}
+
+document.getElementById('excelPasteBtn').addEventListener('click',openExcelPaste);
+document.getElementById('excelPasteCloseBtn').addEventListener('click',()=>document.getElementById('excelPasteModal').classList.add('lf-hidden'));
+document.getElementById('excelParseBtn').addEventListener('click',parseExcelPaste);
+document.getElementById('excelPasteArea').addEventListener('paste',()=>setTimeout(()=>{
+  const t=document.getElementById('excelPasteArea').value;
+  const rows=t.replace(/\r/g,'').split('\n').filter(x=>x.trim()).length;
+  document.getElementById('excelPasteStatus').textContent=rows>1?`${rows-1}개 데이터 행이 감지됐습니다. '표 인식하기'를 눌러주세요.`:'첫 행은 반드시 컬럼명이어야 합니다.';
+},0));
+
 async function runOcrFile(file){
   const modal=document.getElementById('ocrModal'), prog=document.getElementById('ocrProgress');
   modal.classList.remove('lf-hidden'); document.getElementById('ocrPreviewBody').innerHTML='';
