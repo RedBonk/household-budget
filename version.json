@@ -1,6 +1,7 @@
 {
-  "appVersion": "1.6.1",
-  "build": "initial-1.6.1",
-  "commit": "initial",
-  "builtAt": "2026-09-13T06:15:00Z"
+  "appVersion": "1.6.4",
+  "build": "local-1.6.4",
+  "commit": "local",
+  "builtAt": "2026-09-13T06:20:00Z",
+  "version": "1.6.4"
 }
