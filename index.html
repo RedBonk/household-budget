@@ -179,6 +179,14 @@
   .ocr-dup{background:rgba(190,140,30,.10);}
   .ocr-badge{display:inline-block;font-size:10px;padding:2px 5px;border-radius:10px;background:rgba(63,124,89,.12);color:#2f6547;margin-left:4px;white-space:nowrap;}
   .ocr-warn{font-size:10px;color:#9a6417;white-space:nowrap;}
+  .ocr-status{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle;box-shadow:0 0 0 1px rgba(0,0,0,.16);}
+  .ocr-status.gray{background:#8b9298;}
+  .ocr-status.green{background:#2e9b59;}
+  .ocr-status.orange{background:#d68a18;}
+  .ocr-status.red{background:#cf4545;}
+  .ocr-preview th:last-child,.ocr-preview td:last-child{width:42px;min-width:42px;max-width:42px;text-align:center;}
+  .ocr-check-toggle{width:28px;height:26px;padding:0;border:1px solid var(--paper-line);border-radius:4px;background:var(--input-bg);color:var(--ink);cursor:pointer;font-size:14px;line-height:1;}
+  .ocr-check-toggle:hover{border-color:var(--brass);}
   .ocr-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;}
   .dup-modal{position:fixed;inset:0;background:rgba(20,24,28,.58);z-index:190;display:flex;align-items:center;justify-content:center;padding:18px;}
   .dup-modal.lf-hidden{display:none;}
@@ -404,9 +412,9 @@
 
         <div class="lf-group lf-group-dep"><label>출금 계좌</label><select id="lf-dep-from"></select></div>
         <div class="lf-group lf-group-dep"><label>입금 계좌</label><select id="lf-dep-to"></select></div>
-        <div class="lf-group lf-group-dep-single"><label>금액</label><input type="number" id="lf-dep-amount" placeholder="0" style="width:110px;"></div>
-        <div class="lf-group lf-group-dep-dual"><label>보내는 금액</label><input type="number" id="lf-dep-fromamt" placeholder="0" style="width:110px;"></div>
-        <div class="lf-group lf-group-dep-dual"><label>받는 금액</label><input type="number" id="lf-dep-toamt" placeholder="0" style="width:110px;"></div>
+        <div class="lf-group lf-group-dep-single"><label>금액</label><input type="text" inputmode="numeric" class="moneyinput" data-money-currency="KRW" id="lf-dep-amount" placeholder="₩0" style="width:110px;"></div>
+        <div class="lf-group lf-group-dep-dual"><label>보내는 금액</label><input type="text" inputmode="numeric" class="moneyinput" data-money-currency="KRW" id="lf-dep-fromamt" placeholder="₩0" style="width:110px;"></div>
+        <div class="lf-group lf-group-dep-dual"><label>받는 금액</label><input type="text" inputmode="numeric" class="moneyinput" data-money-currency="KRW" id="lf-dep-toamt" placeholder="₩0" style="width:110px;"></div>
 
         <div class="lf-group lf-group-stock"><label>시장</label><select id="lf-market"><option value="kr">국내</option><option value="us">해외</option></select></div>
         <div class="lf-group lf-group-stock"><label>매매구분</label><select id="lf-action"><option value="buy">매수</option><option value="sell">매도</option></select></div>
@@ -415,7 +423,7 @@
         <div class="lf-group lf-group-stock"><label>수량</label><input type="number" id="lf-qty" placeholder="0" style="width:80px"></div>
         <div class="lf-group lf-group-stock"><label>단가</label><input type="number" id="lf-price" placeholder="0" style="width:100px"></div>
 
-        <div class="lf-group lf-group-amount" style="flex:1;min-width:100px;"><label>금액</label><input type="number" id="lf-amount" placeholder="0"></div>
+        <div class="lf-group lf-group-amount" style="flex:1;min-width:100px;"><label>금액</label><input type="text" inputmode="numeric" class="moneyinput" data-money-currency="KRW" id="lf-amount" placeholder="₩0"></div>
         <div style="flex:1;min-width:140px;"><label>내용</label><input type="text" id="lf-memo" placeholder="메모"></div>
         <div style="justify-content:flex-end;"><label>&nbsp;</label><button class="btn small brass" id="lf-add">+ 추가</button></div>
       </div>
@@ -644,7 +652,7 @@
   <footer>
     이 파일을 다운로드해 직접 브라우저로 열면(또는 웹에 호스팅하면) 자동 저장이 정상 동작합니다.<br>
     Download this file and open it directly in your browser (or host it) for autosave to work reliably.
-    <div class="app-version" id="appVersionInfo">가계부 <b>v1.6.6</b> · Build 확인 중…</div>
+    <div class="app-version" id="appVersionInfo">가계부 <b>v1.6.7</b> · Build 확인 중…</div>
   </footer>
 </div>
 
@@ -739,12 +747,12 @@
     </div>
     <div class="tablewrap">
       <table class="ocr-preview">
-        <thead><tr><th><label class="ocr-check-all-label" title="전체 체크/해제" aria-label="전체 체크/해제"><input type="checkbox" id="ocrCheckAll" checked></label></th><th>날짜</th><th>내용</th><th>금액</th><th>카테고리</th><th>지출 방식</th><th>상태</th></tr></thead>
+        <thead><tr><th><button type="button" class="ocr-check-toggle" id="ocrCheckAllBtn" title="전체 선택/해제" aria-label="전체 선택/해제">☑</button><input type="checkbox" id="ocrCheckAll" class="lf-hidden" checked></th><th>날짜</th><th>내용</th><th>금액</th><th>카테고리</th><th>지출 방식</th><th>상태</th></tr></thead>
         <tbody id="ocrPreviewBody"></tbody>
       </table>
     </div>
     <div class="ocr-foot">
-      <span class="ocr-help">빨간 테두리 = 자동 인식되지 않았거나 아직 선택하지 않은 필수 항목. ‘선택’ 컬럼의 상단 체크박스로 전체 거래를 체크/해제할 수 있습니다. 중복 의심 거래는 등록 시 확인 팝업이 표시됩니다.</span>
+      <span class="ocr-help">상태: 회색=미선택 · 초록=등록 가능 · 주황=중복 의심 · 빨강=금액/카테고리/지출방식 확인 필요. 좌측 상단 버튼으로 전체 선택/해제할 수 있습니다.</span>
       <button type="button" class="btn brass" id="ocrAddSelectedBtn">선택한 거래 등록</button>
     </div>
   </div>
@@ -1223,8 +1231,25 @@ const fmtPct = n => (n>=0?'+':'') + (n*100).toFixed(2) + '%';
 const gainClass = n => n>0?'calc gain':(n<0?'calc loss':'calc');
 /* 순현금흐름 전용 색상: 마이너스=빨강(경고), 플러스=파랑(흑자) — 투자손익(gainClass)과는 반대 규칙 */
 const netFlowColor = n => n<0 ? 'var(--up)' : (n>0 ? 'var(--down)' : 'var(--ink-soft)');
-const fmtMoneyPlain = n => Math.round(n||0).toLocaleString('ko-KR');
+const fmtMoneyPlain = n => '₩' + Math.round(n||0).toLocaleString('ko-KR');
 const parseMoneyInput = s => +String(s).replace(/[^0-9.-]/g,'') || 0;
+
+function formatKrwMoneyInput(el){
+  if(!el) return;
+  const raw=String(el.value||'').trim();
+  if(!raw || !/[0-9]/.test(raw)){ el.value=''; return; }
+  const n=parseMoneyInput(raw);
+  el.value=fmtMoneyPlain(n);
+  try{ el.setSelectionRange(el.value.length,el.value.length); }catch(_e){}
+}
+document.addEventListener('input', e=>{
+  const el=e.target;
+  if(el && el.matches && el.matches('input[data-money-currency=\"KRW\"]')) formatKrwMoneyInput(el);
+});
+document.addEventListener('blur', e=>{
+  const el=e.target;
+  if(el && el.matches && el.matches('input[data-money-currency=\"KRW\"]') && el.value) formatKrwMoneyInput(el);
+}, true);
 
 function toast(msg){
   const t = document.getElementById('toast');
@@ -1699,14 +1724,14 @@ document.querySelectorAll('[data-fx]').forEach(btn=>{
 function paymentAcctRowHtml(a){
   return `<tr data-id="${a.id}">
     <td class="left"><input class="cell left" data-f="name" value="${a.name}"></td>
-    <td><input class="cell moneyinput" type="text" data-f="krwBalance" value="${fmtMoneyPlain(a.krwBalance)}"></td>
+    <td><input class="cell moneyinput" type="text" inputmode="numeric" data-money-currency="KRW" data-f="krwBalance" value="${fmtMoneyPlain(a.krwBalance)}"></td>
     <td><button class="btn tiny ghost" data-act="del">✕</button></td>
   </tr>`;
 }
 function investAcctRowHtml(a){
   return `<tr data-id="${a.id}">
     <td class="left"><input class="cell left" data-f="name" value="${a.name}"></td>
-    <td><input class="cell moneyinput" type="text" data-f="krwBalance" value="${fmtMoneyPlain(a.krwBalance)}"></td>
+    <td><input class="cell moneyinput" type="text" inputmode="numeric" data-money-currency="KRW" data-f="krwBalance" value="${fmtMoneyPlain(a.krwBalance)}"></td>
     <td><input class="cell moneyinput" type="text" data-f="usdBalance" value="${(a.usdBalance||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}"></td>
     <td><button class="btn tiny ghost" data-act="del">✕</button></td>
   </tr>`;
@@ -2248,7 +2273,8 @@ function parseExpenseScreenshot(text){
   return rows.slice(0,80);
 }
 function findOcrDuplicates(r){
-  return (state.ledger||[]).filter(x=>x.major==='지출' && x.date===r.date && +x.amount===+r.amount && normalizeMerchant(x.memo)===normalizeMerchant(r.memo));
+  const amt=parseMoneyInput(r.amount);
+  return (state.ledger||[]).filter(x=>x.major==='지출' && x.date===r.date && parseMoneyInput(x.amount)===amt && normalizeMerchant(x.memo)===normalizeMerchant(r.memo));
 }
 function isOcrDuplicate(r){ return findOcrDuplicates(r).length>0; }
 function defaultCheckCardPay(){
@@ -2267,6 +2293,22 @@ function ocrPayOptions(selected){
   return `<option value="">선택</option>`+opts.map(o=>`<option value="${ocrEscape(o.v)}" ${o.v===String(selected)?'selected':''}>${ocrEscape(o.n)}</option>`).join('');
 }
 function ocrFieldClass(v){ return v ? '' : 'ocr-missing'; }
+function ocrStatusInfo(r){
+  if(r.checked===false) return {cls:'gray', label:'선택 안됨'};
+  const validAmount=parseMoneyInput(r.amount)>0;
+  const validCore=validAmount && !!r.category && !!r.pay;
+  if(!validCore) return {cls:'red', label:'필수 항목 확인'};
+  if(findOcrDuplicates(r).length>0) return {cls:'orange', label:'중복 의심'};
+  return {cls:'green', label:'등록 가능'};
+}
+function ocrStatusHtml(r){ const st=ocrStatusInfo(r); return `<span class="ocr-status ${st.cls}" title="${st.label}" aria-label="${st.label}"></span>`; }
+function updateOcrRowStatus(tr,r){
+  if(!tr||!r) return;
+  const st=ocrStatusInfo(r);
+  const td=tr.querySelector('td:last-child');
+  if(td) td.innerHTML=`<span class="ocr-status ${st.cls}" title="${st.label}" aria-label="${st.label}"></span>`;
+  tr.classList.toggle('ocr-dup', st.cls==='orange');
+}
 function renderOcrRows(){
   const body=document.getElementById('ocrPreviewBody');
   if(!ocrRows.length){ body.innerHTML='<tr><td colspan="7" style="padding:18px;color:var(--ink-soft);">거래를 찾지 못했습니다. 더 선명한 캡처를 사용하거나 필요한 값을 직접 입력해주세요.</td></tr>'; return; }
@@ -2275,14 +2317,15 @@ function renderOcrRows(){
     if(!r.pay && defaultPay && !r.payTouched) r.pay=defaultPay;
     const dup=!r.added && isOcrDuplicate(r); r.duplicate=dup;
     const checked=!r.added && r.checked!==false;
-    return `<tr data-i="${i}" class="${dup?'ocr-dup':''}">
+    const rowStatus=ocrStatusInfo(r);
+    return `<tr data-i="${i}" class="${rowStatus.cls==='orange'?'ocr-dup':''}">
       <td><input type="checkbox" data-f="checked" ${checked?'checked':''} ${r.added?'disabled':''} style="width:auto;min-width:0"></td>
       <td><input type="date" data-f="date" class="${ocrFieldClass(r.date)}" value="${ocrEscape(r.date)}"></td>
       <td><input class="memo ${ocrFieldClass(r.memo)}" data-f="memo" value="${ocrEscape(r.memo)}"></td>
-      <td><input type="number" class="amount ${ocrFieldClass(r.amount)}" data-f="amount" value="${r.amount||''}"></td>
+      <td><input type="text" inputmode="numeric" data-money-currency="KRW" class="amount ${ocrFieldClass(r.amount)}" data-f="amount" value="${r.amount?fmtMoneyPlain(r.amount):''}"></td>
       <td><select data-f="category" class="${ocrFieldClass(r.category)}">${ocrCategoryOptions(r.category)}</select>${r.suggested?`<span class="ocr-badge">학습 추천${r.confidence?` ${Math.round(r.confidence*100)}%`:''}</span>`:''}</td>
       <td><select data-f="pay" class="${ocrFieldClass(r.pay)}">${ocrPayOptions(r.pay)}</select></td>
-      <td>${r.added?'<span class="ocr-badge">등록됨</span>':(dup?'<span class="ocr-warn">중복 의심 · 등록 시 확인</span>':'-')}</td>
+      <td>${r.added?'<span class="ocr-status green" title="등록됨" aria-label="등록됨"></span>':ocrStatusHtml(r)}</td>
     </tr>`;
   }).join('');
   updateOcrCheckAll();
@@ -2295,15 +2338,22 @@ function updateOcrCheckAll(){
   master.disabled=!active.length;
   master.checked=!!active.length && checked.length===active.length;
   master.indeterminate=checked.length>0 && checked.length<active.length;
+  const btn=document.getElementById('ocrCheckAllBtn');
+  if(btn){
+    btn.disabled=!active.length;
+    btn.textContent=!active.length?'☐':(master.checked?'☑':(master.indeterminate?'▣':'☐'));
+    btn.title=master.checked?'전체 선택 해제':'전체 선택';
+    btn.setAttribute('aria-label',btn.title);
+  }
 }
-function validateOcrRow(r){ return !!(r.date && r.memo && +r.amount>0 && r.category && r.pay); }
+function validateOcrRow(r){ return !!(r.date && r.memo && parseMoneyInput(r.amount)>0 && r.category && r.pay); }
 function syncOcrRowFromTr(tr){
   const i=+tr.dataset.i, r=ocrRows[i]; if(!r) return null;
   tr.querySelectorAll('[data-f]').forEach(el=>{
     const f=el.dataset.f; if(f==='checked') r.checked=el.checked; else r[f]=el.value;
-    if(f!=='checked') el.classList.toggle('ocr-missing', !el.value || (f==='amount' && +el.value<=0));
+    if(f!=='checked') el.classList.toggle('ocr-missing', !el.value || (f==='amount' && parseMoneyInput(el.value)<=0));
   });
-  r.amount=+r.amount||0; return r;
+  r.amount=parseMoneyInput(r.amount); return r;
 }
 
 function normalizeHeaderName(v){
@@ -2421,8 +2471,14 @@ document.getElementById('ocrCheckAll').addEventListener('change',e=>{
   for(const r of ocrRows){ if(!r.added) r.checked=checked; }
   renderOcrRows();
 });
-document.getElementById('ocrPreviewBody').addEventListener('input',e=>{ const tr=e.target.closest('tr[data-i]'); if(tr){ syncOcrRowFromTr(tr); updateOcrCheckAll(); } });
-document.getElementById('ocrPreviewBody').addEventListener('change',e=>{ const tr=e.target.closest('tr[data-i]'); if(tr){ const r=syncOcrRowFromTr(tr); if(r && e.target?.dataset?.f==='pay') r.payTouched=true; } });
+document.getElementById('ocrCheckAllBtn').addEventListener('click',()=>{
+  const active=ocrRows.filter(r=>!r.added);
+  const allChecked=active.length>0 && active.every(r=>r.checked!==false);
+  for(const r of active) r.checked=!allChecked;
+  renderOcrRows();
+});
+document.getElementById('ocrPreviewBody').addEventListener('input',e=>{ const tr=e.target.closest('tr[data-i]'); if(tr){ const r=syncOcrRowFromTr(tr); updateOcrCheckAll(); updateOcrRowStatus(tr,r); } });
+document.getElementById('ocrPreviewBody').addEventListener('change',e=>{ const tr=e.target.closest('tr[data-i]'); if(tr){ const r=syncOcrRowFromTr(tr); if(r && e.target?.dataset?.f==='pay') r.payTouched=true; updateOcrCheckAll(); updateOcrRowStatus(tr,r); } });
 let dupDecisionResolve=null;
 function duplicateDecision(r, matches, currentIndex=1, totalCount=1){
   return new Promise(resolve=>{
@@ -2459,7 +2515,7 @@ document.getElementById('importCompleteOkBtn').addEventListener('click',()=>{
 });
 
 function addImportedExpenseRow(r){
-  const entry={id:uid(),date:r.date,user:document.getElementById('lf-user').value||'',major:'지출',category:r.category,currency:'KRW',memo:r.memo,amount:+r.amount};
+  const entry={id:uid(),date:r.date,user:document.getElementById('lf-user').value||'',major:'지출',category:r.category,currency:'KRW',memo:r.memo,amount:parseMoneyInput(r.amount)};
   if(String(r.pay).startsWith('TR:')){ entry.paymentMethodId=null; entry.transferAccountId=+String(r.pay).slice(3)||null; }
   else if(String(r.pay).startsWith('PM:')) entry.paymentMethodId=+String(r.pay).slice(3)||null;
   else return false;
@@ -2560,7 +2616,7 @@ function addLedgerEntryFromForm(){
   let entry = { id: uid(), date, user, major, category, currency:'KRW', memo, amount:0 };
 
   if(isExpense){
-    const amount = +document.getElementById('lf-amount').value || 0;
+    const amount = parseMoneyInput(document.getElementById('lf-amount').value);
     if(!amount){ toast('금액을 입력해주세요'); return false; }
     const payVal = document.getElementById('lf-pay').value;
     if(payVal==='TRANSFER'){
@@ -2571,7 +2627,7 @@ function addLedgerEntryFromForm(){
     }
     entry.amount = amount;
   } else if(isIncome){
-    const amount = +document.getElementById('lf-amount').value || 0;
+    const amount = parseMoneyInput(document.getElementById('lf-amount').value);
     if(!amount){ toast('금액을 입력해주세요'); return false; }
     entry.incomeAccountId = +document.getElementById('lf-income-account').value || null;
     entry.amount = amount;
@@ -2580,10 +2636,10 @@ function addLedgerEntryFromForm(){
     const toVal = document.getElementById('lf-dep-to').value;
     let fromAmt, toAmt;
     if(isDepositCash){
-      fromAmt = toAmt = +document.getElementById('lf-dep-amount').value || 0;
+      fromAmt = toAmt = parseMoneyInput(document.getElementById('lf-dep-amount').value);
     } else {
-      fromAmt = +document.getElementById('lf-dep-fromamt').value || 0;
-      toAmt = +document.getElementById('lf-dep-toamt').value || 0;
+      fromAmt = parseMoneyInput(document.getElementById('lf-dep-fromamt').value);
+      toAmt = parseMoneyInput(document.getElementById('lf-dep-toamt').value);
     }
     if(!fromVal || !toVal){ toast('출금·입금 계좌를 선택해주세요'); return false; }
     if(!fromAmt || !toAmt){ toast('금액을 입력해주세요'); return false; }
@@ -2610,7 +2666,7 @@ function addLedgerEntryFromForm(){
     if(!memo) memo = `${action==='buy'?'매수':'매도'} ${name||ticker} x${qty}`;
     entry.memo = memo;
   } else {
-    const amount = +document.getElementById('lf-amount').value || 0;
+    const amount = parseMoneyInput(document.getElementById('lf-amount').value);
     if(!amount){ toast('금액을 입력해주세요'); return false; }
     entry.amount = amount;
   }
@@ -2700,7 +2756,7 @@ function ledgerRowEditHtml(r){
       <option value="USD" ${r.currency==='USD'?'selected':''}>USD</option>
     </select></td>
     <td class="left"><input class="cell left" data-f="memo" value="${r.memo||''}"></td>
-    <td><input class="cell moneyinput" type="text" data-f="amount" value="${fmtMoneyPlain(r.amount)}"></td>
+    <td><input class="cell moneyinput" type="text" inputmode="numeric" data-money-currency="KRW" data-f="amount" value="${fmtMoneyPlain(r.amount)}"></td>
     <td><button class="btn tiny ghost" data-act="del">✕</button></td>
   </tr>`;
 }
@@ -3171,7 +3227,7 @@ document.addEventListener('visibilitychange', async ()=>{
    - APP_VERSION은 기능 릴리스 버전(사람이 읽기 쉬운 버전)
    - version.json은 GitHub Actions가 push마다 commit SHA/배포시각을 자동 갱신
 ============================================================ */
-const APP_VERSION = '1.6.6';
+const APP_VERSION = '1.6.7';
 
 async function renderAppVersion(){
   const el = document.getElementById('appVersionInfo');
