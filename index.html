@@ -162,7 +162,6 @@
   .paste-status{font-size:11px;color:var(--ink-soft);margin-top:8px;min-height:18px;}
   .ocr-missing{border:2px solid #c9362b !important;box-shadow:0 0 0 1px rgba(201,54,43,.08);}
   .ocr-autofilled{border-color:#3f7c59 !important;}
-  .ocr-field-stack{display:flex;flex-direction:column;gap:4px;min-width:105px;}
   .ocr-modal{position:fixed;inset:0;background:rgba(20,24,28,.52);z-index:160;display:flex;align-items:center;justify-content:center;padding:18px;}
   .ocr-modal.lf-hidden{display:none;}
   .ocr-card{width:min(1100px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--paper-line);border-radius:10px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);}
@@ -171,6 +170,8 @@
   .ocr-progress{font-size:12px;color:var(--ink-soft);margin:8px 0;}
   .ocr-preview{width:100%;border-collapse:collapse;font-size:12px;}
   .ocr-preview th,.ocr-preview td{border-bottom:1px solid var(--paper-line);padding:6px;vertical-align:middle;}
+  .ocr-check-all-label{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-weight:700;cursor:pointer;}
+  .ocr-check-all-label input{width:auto;min-width:0;accent-color:var(--brass);}
   .ocr-preview input,.ocr-preview select{width:100%;min-width:92px;font-family:'Noto Sans KR',sans-serif;font-size:12px;border:1px solid var(--paper-line);border-radius:4px;padding:6px;background:var(--input-bg);color:var(--ink);box-sizing:border-box;}
   .ocr-preview .memo{min-width:160px;}
   .ocr-preview .amount{min-width:100px;text-align:right;font-family:'IBM Plex Mono',monospace;}
@@ -642,7 +643,7 @@
   <footer>
     이 파일을 다운로드해 직접 브라우저로 열면(또는 웹에 호스팅하면) 자동 저장이 정상 동작합니다.<br>
     Download this file and open it directly in your browser (or host it) for autosave to work reliably.
-    <div class="app-version" id="appVersionInfo">가계부 <b>v1.6.4</b> · Build 확인 중…</div>
+    <div class="app-version" id="appVersionInfo">가계부 <b>v1.6.5</b> · Build 확인 중…</div>
   </footer>
 </div>
 
@@ -737,7 +738,7 @@
     </div>
     <div class="tablewrap">
       <table class="ocr-preview">
-        <thead><tr><th><label class="ocr-check-all-label" title="전체 체크/해제"><input type="checkbox" id="ocrCheckAll" checked> 선택</label></th><th>날짜</th><th>내용</th><th>금액</th><th>카테고리</th><th>지출 방식</th><th>상태</th></tr></thead>
+        <thead><tr><th><label class="ocr-check-all-label" title="전체 체크/해제"><input type="checkbox" id="ocrCheckAll" checked> 전체 선택/해제</label></th><th>날짜</th><th>내용</th><th>금액</th><th>카테고리</th><th>지출 방식</th><th>상태</th></tr></thead>
         <tbody id="ocrPreviewBody"></tbody>
       </table>
     </div>
@@ -3152,7 +3153,7 @@ document.addEventListener('visibilitychange', async ()=>{
    - APP_VERSION은 기능 릴리스 버전(사람이 읽기 쉬운 버전)
    - version.json은 GitHub Actions가 push마다 commit SHA/배포시각을 자동 갱신
 ============================================================ */
-const APP_VERSION = '1.6.4';
+const APP_VERSION = '1.6.5';
 
 async function renderAppVersion(){
   const el = document.getElementById('appVersionInfo');
@@ -3180,7 +3181,7 @@ renderAppVersion();
    file://로 직접 열었을 때는 브라우저가 등록을 지원하지 않으므로 조용히 넘어간다 */
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{ /* 등록 실패해도 앱 사용에는 지장 없음 */ });
+    navigator.serviceWorker.register('sw.js?v=10', { updateViaCache: 'none' }).catch(()=>{ /* 등록 실패해도 앱 사용에는 지장 없음 */ });
   });
 }
 
